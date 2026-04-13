@@ -93,12 +93,12 @@ const CATEGORY_TXS = {
   "Other":[{member:"Anna K.",color:"#7C6FFF",merchant:"Parking",amount:-45,date:"Mar 22"},{member:"Erik K.",color:"#34D399",merchant:"Pharmacy",amount:-312,date:"Mar 19"},{member:"Anna K.",color:"#7C6FFF",merchant:"Post office",amount:-89,date:"Mar 15"},{member:"Anna K.",color:"#7C6FFF",merchant:"Misc",amount:-567,date:"Mar 8"}],
 };
 const DEALS = [
-  { id:1, partner:"ICA", logo:"🛒", category:"Groceries", tag:"Based on your spending", tagColor:"#F472B6", title:"10% cashback on groceries", desc:"Shop at ICA this week and get 10% back on all grocery purchases.", saving:"Save ~320 kr/mo", color:"#F472B6", colorSoft:"rgba(244,114,182,0.15)" },
-  { id:2, partner:"Elgiganten", logo:"💻", category:"Electronics", tag:"Erik's laptop goal", tagColor:"#34D399", title:"0% interest on electronics", desc:"Finance your next tech purchase with 0% interest for 12 months.", saving:"Save up to 1 800 kr", color:"#34D399", colorSoft:"rgba(52,211,153,0.15)" },
-  { id:3, partner:"Booking.com", logo:"✈️", category:"Travel", tag:"Anna's holiday goal", tagColor:"#7C6FFF", title:"Up to 20% off hotels", desc:"Exclusive family rates on summer destinations. Book before April 30.", saving:"Save ~2 400 kr", color:"#7C6FFF", colorSoft:"rgba(124,111,255,0.15)" },
-  { id:4, partner:"Foodora", logo:"🍔", category:"Food & dining", tag:"Based on your spending", tagColor:"#FBBF24", title:"Free delivery all month", desc:"No delivery fees on all orders over 150 kr through Foodora.", saving:"Save ~180 kr/mo", color:"#FBBF24", colorSoft:"rgba(251,191,36,0.15)" },
-  { id:5, partner:"Stadium", logo:"🚲", category:"Sports", tag:"Maja's bike goal", tagColor:"#F472B6", title:"15% off bikes & accessories", desc:"Get closer to Maja's goal.", saving:"Save ~375 kr", color:"#F472B6", colorSoft:"rgba(244,114,182,0.15)" },
-  { id:6, partner:"Spotify", logo:"🎵", category:"Subscriptions", tag:"Based on your spending", tagColor:"#60A5FA", title:"Family plan — save 40%", desc:"Switch to the Spotify Family plan and save.", saving:"Save ~80 kr/mo", color:"#60A5FA", colorSoft:"rgba(96,165,250,0.15)" },
+  { id:1, partner:"ICA", logo:"🛒", category:"Groceries", tag:"Based on your spending", tagColor:"#F472B6", title:"10% cashback on groceries", desc:"Shop at ICA this week and get 10% back on all grocery purchases.", saving:"Save ~320 kr/mo", color:"#F472B6", colorSoft:"rgba(244,114,182,0.15)", photo:"https://images.unsplash.com/photo-1542838132-92c53300491e?w=300&h=160&fit=crop&q=80" },
+  { id:2, partner:"Elgiganten", logo:"💻", category:"Electronics", tag:"Erik's laptop goal", tagColor:"#34D399", title:"0% interest on electronics", desc:"Finance your next tech purchase with 0% interest for 12 months.", saving:"Save up to 1 800 kr", color:"#34D399", colorSoft:"rgba(52,211,153,0.15)", photo:"https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=300&h=160&fit=crop&q=80" },
+  { id:3, partner:"Booking.com", logo:"✈️", category:"Travel", tag:"Anna's holiday goal", tagColor:"#7C6FFF", title:"Up to 20% off hotels", desc:"Exclusive family rates on summer destinations. Book before April 30.", saving:"Save ~2 400 kr", color:"#7C6FFF", colorSoft:"rgba(124,111,255,0.15)", photo:"https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=300&h=160&fit=crop&q=80" },
+  { id:4, partner:"Foodora", logo:"🍔", category:"Food & dining", tag:"Based on your spending", tagColor:"#FBBF24", title:"Free delivery all month", desc:"No delivery fees on all orders over 150 kr through Foodora.", saving:"Save ~180 kr/mo", color:"#FBBF24", colorSoft:"rgba(251,191,36,0.15)", photo:"https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=300&h=160&fit=crop&q=80" },
+  { id:5, partner:"Stadium", logo:"🚲", category:"Sports", tag:"Maja's bike goal", tagColor:"#F472B6", title:"15% off bikes & accessories", desc:"Get closer to Maja's goal.", saving:"Save ~375 kr", color:"#F472B6", colorSoft:"rgba(244,114,182,0.15)", photo:"https://images.unsplash.com/photo-1532298229144-0ec0c57515c7?w=300&h=160&fit=crop&q=80" },
+  { id:6, partner:"Spotify", logo:"🎵", category:"Subscriptions", tag:"Based on your spending", tagColor:"#60A5FA", title:"Family plan — save 40%", desc:"Switch to the Spotify Family plan and save.", saving:"Save ~80 kr/mo", color:"#60A5FA", colorSoft:"rgba(96,165,250,0.15)", photo:"https://images.unsplash.com/photo-1614680376573-df3480f0c6ff?w=300&h=160&fit=crop&q=80" },
 ];
 const NOTIFICATIONS = [
   { id:1, icon:"⚠️", color:C.amber, bg:C.amberSoft, title:"Erik is close to his limit", body:"Erik has used 77% of his monthly spending limit.", time:"Just now", unread:true },
@@ -2298,10 +2298,19 @@ function FamilyHub({ members, setMembers, buffer, setBuffer, childFund, setChild
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}><TileLabel>Partner deals</TileLabel><span style={{fontSize:12,color:C.accent,marginBottom:10}}>See all</span></div>
           <ScrollRow style={{display:"flex",gap:10,paddingBottom:4}}>
             {DEALS.slice(0,4).map(deal=>(
-              <div key={deal.id} style={{flexShrink:0,width:150,background:deal.color+"10",border:"1px solid "+deal.color+"33",borderRadius:14,padding:12}}>
-                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}><div style={{width:28,height:28,borderRadius:8,background:deal.colorSoft,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14}}>{deal.logo}</div><span style={{fontSize:12,fontWeight:500,color:C.t1}}>{deal.partner}</span></div>
-                <div style={{fontSize:12,fontWeight:500,color:C.t1,marginBottom:4,lineHeight:1.3}}>{deal.title}</div>
-                <span style={{fontSize:10,fontWeight:500,color:deal.color,background:deal.colorSoft,borderRadius:999,padding:"2px 7px"}}>{deal.saving}</span>
+              <div key={deal.id} style={{flexShrink:0,width:150,background:deal.color+"10",border:"1px solid "+deal.color+"33",borderRadius:14,overflow:"hidden"}}>
+                <div style={{position:"relative",height:80}}>
+                  <img src={deal.photo} alt={deal.partner} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+                  <div style={{position:"absolute",inset:0,background:"linear-gradient(to bottom,transparent 40%,rgba(0,0,0,0.55) 100%)"}}/>
+                  <div style={{position:"absolute",bottom:6,left:8,display:"flex",alignItems:"center",gap:5}}>
+                    <div style={{width:20,height:20,borderRadius:6,background:deal.colorSoft,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11}}>{deal.logo}</div>
+                    <span style={{fontSize:11,fontWeight:600,color:"#fff"}}>{deal.partner}</span>
+                  </div>
+                </div>
+                <div style={{padding:"10px 10px 10px"}}>
+                  <div style={{fontSize:12,fontWeight:500,color:C.t1,marginBottom:6,lineHeight:1.3}}>{deal.title}</div>
+                  <span style={{fontSize:10,fontWeight:500,color:deal.color,background:deal.colorSoft,borderRadius:999,padding:"2px 7px"}}>{deal.saving}</span>
+                </div>
               </div>
             ))}
           </ScrollRow>
