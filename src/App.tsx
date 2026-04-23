@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, createContext, useContext } from "react";
 import MonthlySummary from "./MonthlySummary";
 import FixedExpenses from "./FixedExpenses";
 
@@ -29,25 +29,60 @@ function useDragScroll() {
   return props;
 }
 
+// Returns a `save` callback. Call it via onClickCapture on the scrollable content.
+// Restoration happens automatically when isNavActive goes true→false.
+function useScrollRestore(scrollRef: React.RefObject<any>, isNavActive: boolean) {
+  const savedY = useRef(0);
+  const prevActive = useRef(false);
+  const save = useCallback(() => {
+    if (scrollRef?.current) savedY.current = scrollRef.current.scrollTop;
+  }, [scrollRef]);
+  useEffect(() => {
+    if (!isNavActive && prevActive.current) {
+      // leaving sub-page: restore saved position
+      requestAnimationFrame(() => { if (scrollRef?.current) scrollRef.current.scrollTop = savedY.current; });
+    }
+    prevActive.current = isNavActive;
+  }, [isNavActive]);
+  return save;
+}
+
 function ScrollRow({ children, style, scrollRef, ...rest }) {
   const drag = useDragScroll();
   const mergedRef = useCallback((node) => { drag.ref.current = node; if (scrollRef) scrollRef.current = node; }, [scrollRef]);
   return <div {...rest} ref={mergedRef} onMouseDown={drag.onMouseDown} onMouseMove={drag.onMouseMove} onMouseUp={drag.onMouseUp} onMouseLeave={drag.onMouseLeave} style={{...style, cursor: drag.style.cursor, overflowX: "auto", scrollbarWidth: "none"}}>{children}</div>;
 }
 
-const C = {
+const darkColors = {
   bg:"#0D0F1A", surface:"#13162A", card:"#1C2040", cardHover:"#222648",
   border:"rgba(255,255,255,0.07)", accent:"#7C6FFF", accentSoft:"rgba(124,111,255,0.15)",
   green:"#34D399", greenSoft:"rgba(52,211,153,0.13)", amber:"#FBBF24",
   amberSoft:"rgba(251,191,36,0.13)", red:"#F87171", redSoft:"rgba(248,113,113,0.12)",
   t1:"#F1F0FF", t2:"rgba(241,240,255,0.52)", t3:"rgba(241,240,255,0.3)",
 };
+const lightColors = {
+  bg:"#EEF0FA", surface:"#FFFFFF", card:"#FFFFFF", cardHover:"#F0F2FC",
+  border:"rgba(0,0,0,0.08)", accent:"#7C6FFF", accentSoft:"rgba(124,111,255,0.12)",
+  green:"#059669", greenSoft:"rgba(5,150,105,0.1)", amber:"#D97706",
+  amberSoft:"rgba(217,119,6,0.1)", red:"#DC2626", redSoft:"rgba(220,38,38,0.1)",
+  t1:"#111827", t2:"rgba(17,24,39,0.55)", t3:"rgba(17,24,39,0.38)",
+};
+const resursColors = {
+  bg:"#F2F4F3", surface:"#FFFFFF", card:"#FFFFFF", cardHover:"#E8EDEB",
+  border:"rgba(0,0,0,0.08)", accent:"#007A70", accentSoft:"rgba(0,122,112,0.12)",
+  green:"#007A70", greenSoft:"rgba(0,122,112,0.1)", amber:"#D97706",
+  amberSoft:"rgba(217,119,6,0.1)", red:"#DC2626", redSoft:"rgba(220,38,38,0.1)",
+  t1:"#1A1A1A", t2:"rgba(26,26,26,0.55)", t3:"rgba(26,26,26,0.38)",
+};
+const C = {...darkColors};
+const ThemeCtx = createContext({ isDark:true, toggleTheme:()=>{}, isResurs:false, toggleResurs:()=>{} });
 
 function SvgFace({ seed, size=40 }) {
   const faces = [
     <svg key="a" width={size} height={size} viewBox="0 0 40 40"><circle cx="20" cy="20" r="20" fill="#F4C5A0"/><ellipse cx="20" cy="28" rx="11" ry="8" fill="#E8A882"/><circle cx="20" cy="17" r="9" fill="#F4C5A0"/><ellipse cx="20" cy="10" rx="10" ry="7" fill="#6C3A1F"/><ellipse cx="11" cy="16" rx="3" ry="6" fill="#6C3A1F"/><ellipse cx="29" cy="16" rx="3" ry="6" fill="#6C3A1F"/><circle cx="16.5" cy="16.5" r="2" fill="#3B2314"/><circle cx="23.5" cy="16.5" r="2" fill="#3B2314"/><path d="M17 21 Q20 23 23 21" stroke="#C07860" strokeWidth="1" fill="none" strokeLinecap="round"/></svg>,
     <svg key="b" width={size} height={size} viewBox="0 0 40 40"><circle cx="20" cy="20" r="20" fill="#D4956A"/><ellipse cx="20" cy="29" rx="12" ry="8" fill="#B07050"/><circle cx="20" cy="17" r="9" fill="#D4956A"/><ellipse cx="20" cy="9" rx="9" ry="5" fill="#2C1A0E"/><rect x="11" y="9" width="18" height="5" rx="2" fill="#2C1A0E"/><circle cx="16.5" cy="16.5" r="2.1" fill="#1A0E08"/><circle cx="23.5" cy="16.5" r="2.1" fill="#1A0E08"/><path d="M17.5 21.5 Q20 23 22.5 21.5" stroke="#A06040" strokeWidth="1.2" fill="none" strokeLinecap="round"/></svg>,
     <svg key="c" width={size} height={size} viewBox="0 0 40 40"><circle cx="20" cy="20" r="20" fill="#FDDBB4"/><ellipse cx="20" cy="29" rx="11" ry="8" fill="#F0B87A"/><circle cx="20" cy="17" r="9" fill="#FDDBB4"/><ellipse cx="20" cy="10" rx="9" ry="6" fill="#C0781A"/><ellipse cx="29" cy="13" rx="2.5" ry="5" fill="#C0781A"/><circle cx="16.5" cy="16.5" r="1.9" fill="#3B2314"/><circle cx="23.5" cy="16.5" r="1.9" fill="#3B2314"/><path d="M17 21.5 Q20 24 23 21.5" stroke="#D0886A" strokeWidth="1" fill="none" strokeLinecap="round"/></svg>,
+    <svg key="d" width={size} height={size} viewBox="0 0 40 40"><circle cx="20" cy="20" r="20" fill="#FCEBD5"/><ellipse cx="20" cy="30" rx="13" ry="9" fill="#F5C99A"/><circle cx="20" cy="18" r="10" fill="#FCEBD5"/><ellipse cx="20" cy="9" rx="11" ry="7" fill="#8B5E3C"/><ellipse cx="10" cy="14" rx="2" ry="4" fill="#8B5E3C"/><ellipse cx="30" cy="14" rx="2" ry="4" fill="#8B5E3C"/><circle cx="16" cy="18" r="2.2" fill="#4A2C0A"/><circle cx="24" cy="18" r="2.2" fill="#4A2C0A"/><circle cx="16.8" cy="17.2" r="0.7" fill="#fff"/><circle cx="24.8" cy="17.2" r="0.7" fill="#fff"/><ellipse cx="14" cy="21" rx="2" ry="1" fill="#F0A080" opacity="0.5"/><ellipse cx="26" cy="21" rx="2" ry="1" fill="#F0A080" opacity="0.5"/><path d="M17 23 Q20 25.5 23 23" stroke="#D08060" strokeWidth="1.2" fill="none" strokeLinecap="round"/><circle cx="20" cy="23.5" r="0.8" fill="#D08060"/></svg>,
   ];
   return faces[seed % faces.length];
 }
@@ -61,25 +96,63 @@ const initBuffer = { balance:18500, monthly:2000, members:[1,2], transactions:[
   {desc:"Anna deposited",amount:1200,date:"Today"},
   {desc:"Erik deposited",amount:800,date:"Mar 22"},
   {desc:"Emergency withdrawal",amount:-3500,date:"Mar 10"},
-]};
-const initChildFund = { balance:9200, startYear:2010, endYear:2028, monthly:500, members:[1,2], transactions:[
-  {desc:"Anna deposited",amount:500,date:"Today"},
+], agreement:{ text:"We save 2 000 kr every month into our buffer — no matter what. This is our safety net, not a spending pot. We only dip into it for real emergencies, and we always refill it together.", date:"Jan 2026", reflection:"You're doing great — your buffer has grown steadily and you've kept the agreement even through tighter months. That consistency is what makes this safety net real.", signers:[{id:1,name:"Anna K.",initials:"AK",color:"#7C6FFF",photo:"https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120&h=120&fit=crop&crop=face&q=80",signed:true,signedDate:"Jan 12, 2026"},{id:2,name:"Erik K.",initials:"EK",color:"#34D399",photo:"https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=120&h=120&fit=crop&crop=face&q=80",signed:true,signedDate:"Jan 12, 2026"}] } };
+const initChildFund = { name:"Maja's 0–18 fund", desc:"A long-term savings fund started when Maja was born. Anna and Erik set aside money each month so Maja has a solid financial start when she turns 18 — whether for studies, a car, or her first apartment.", childId:3, balance:342000, startYear:2010, endYear:2028, monthly:2250, members:[1,2], agreement:{ text:"We commit to saving 500 kr per month for Maja, every month until she turns 18. This money is hers — we won't touch it. When the time comes, we'll sit down together and let her decide how to use it.", date:"Feb 2021", reflection:"Maja's fund has been growing steadily for years. Every deposit is a message to her: you matter, your future matters, and we're building it with you.", signers:[{id:1,name:"Anna K.",initials:"AK",color:"#7C6FFF",photo:"https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120&h=120&fit=crop&crop=face&q=80",signed:true,signedDate:"Feb 3, 2021"},{id:2,name:"Erik K.",initials:"EK",color:"#34D399",photo:"https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=120&h=120&fit=crop&crop=face&q=80",signed:true,signedDate:"Feb 3, 2021"}] }, transactions:[
+  {desc:"Child benefit",amount:1250,date:"Mar 25"},
+  {desc:"Anna deposited",amount:500,date:"Mar 10"},
   {desc:"Erik deposited",amount:500,date:"Mar 1"},
-  {desc:"Birthday bonus",amount:1000,date:"Feb 14"},
+  {desc:"Child benefit",amount:1250,date:"Feb 25"},
+  {desc:"Child benefit",amount:1250,date:"Jan 25"},
+  {desc:"Birthday gift — 16th 🎂",amount:3000,date:"Jan 2026"},
+  {desc:"Christmas gift 🎄",amount:1500,date:"Dec 2025"},
+  {desc:"Birthday gift — 15th 🎂",amount:2000,date:"Sep 2025"},
+  {desc:"Child benefit + contributions 2025",amount:27000,date:"Jan 2025"},
+  {desc:"Birthday gift — 14th 🎂",amount:1500,date:"Sep 2024"},
+  {desc:"Child benefit + contributions 2024",amount:27000,date:"Jan 2024"},
+  {desc:"Birthday gift — 13th 🎂",amount:1200,date:"Sep 2023"},
+  {desc:"Child benefit + contributions 2023",amount:27000,date:"Jan 2023"},
+  {desc:"Birthday gift — 12th 🎂",amount:1000,date:"Sep 2022"},
+  {desc:"Child benefit + contributions 2022",amount:27000,date:"Jan 2022"},
+  {desc:"Birthday gift — 11th 🎂",amount:800,date:"Sep 2021"},
+  {desc:"Child benefit + contributions 2010–2021",amount:216550,date:"Jan 2021"},
+  {desc:"Fund opened 🌱",amount:2500,date:"Apr 2010"},
 ]};
+const initLucasFund = { name:"Lucas's 0–18 fund", desc:"Lucas's savings fund, started at birth and growing every month. Anna and Erik contribute regularly so Lucas has a great financial head start when he reaches adulthood — for education, adventures, or whatever he dreams of.", childId:4, balance:186000, startYear:2016, endYear:2034, monthly:2250, members:[1,2], agreement:{ text:"We save 300 kr for Lucas each month, rain or shine. This fund grows quietly in the background so that when Lucas is ready to take on the world, he's got a solid start waiting for him.", date:"Sep 2016", reflection:"Lucas's fund is young, just like him — but it's already building momentum. Small, consistent contributions add up to something meaningful over time. Keep going.", signers:[{id:1,name:"Anna K.",initials:"AK",color:"#7C6FFF",photo:"https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120&h=120&fit=crop&crop=face&q=80",signed:true,signedDate:"Sep 14, 2016"},{id:2,name:"Erik K.",initials:"EK",color:"#34D399",photo:"https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=120&h=120&fit=crop&crop=face&q=80",signed:true,signedDate:"Sep 14, 2016"}] }, transactions:[
+  {desc:"Child benefit",amount:1250,date:"Mar 25"},
+  {desc:"Anna deposited",amount:300,date:"Mar 10"},
+  {desc:"Erik deposited",amount:300,date:"Mar 1"},
+  {desc:"Child benefit",amount:1250,date:"Feb 25"},
+  {desc:"Child benefit",amount:1250,date:"Jan 25"},
+  {desc:"Birthday gift — 9th 🎂",amount:1500,date:"Sep 2025"},
+  {desc:"Christmas gift 🎄",amount:1000,date:"Dec 2025"},
+  {desc:"Child benefit + contributions 2025",amount:22200,date:"Jan 2025"},
+  {desc:"Birthday gift — 8th 🎂",amount:1200,date:"Sep 2024"},
+  {desc:"Child benefit + contributions 2024",amount:22200,date:"Jan 2024"},
+  {desc:"Birthday gift — 7th 🎂",amount:1000,date:"Sep 2023"},
+  {desc:"Child benefit + contributions 2023",amount:22200,date:"Jan 2023"},
+  {desc:"Birthday gift — 6th 🎂",amount:800,date:"Sep 2022"},
+  {desc:"Child benefit + contributions 2022",amount:22200,date:"Jan 2022"},
+  {desc:"Birthday gift — 5th 🎂",amount:600,date:"Sep 2021"},
+  {desc:"Child benefit + contributions 2016–2021",amount:84450,date:"Jan 2021"},
+  {desc:"Fund opened 🌱",amount:2500,date:"Sep 2016"},
+]};
+const initSummerHoliday = { name:"Summer holiday", desc:"Family trip to Greece this summer! Sun, sea and lasting memories for the whole Karlsson family.", emoji:"🏖", color:"#60A5FA", saved:12400, target:20000, monthly:1200, autoSave:true, completion:"Jul 2026", members:[1,2], photo:"https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=400&h=250&fit=crop&q=80", agreement:{ text:"We save 1 200 kr per month for our summer trip. Both Anna and Erik contribute equally. We book the trip together, and we don't dip into this fund for anything else.", date:"Dec 2025", reflection:"You're 62% of the way there — and you've kept the agreement every single month. Greece is getting closer. This is what saving as a team looks like.", signers:[{id:1,name:"Anna K.",initials:"AK",color:"#7C6FFF",photo:"https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120&h=120&fit=crop&crop=face&q=80",signed:true,signedDate:"Dec 1, 2025"},{id:2,name:"Erik K.",initials:"EK",color:"#34D399",photo:"https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=120&h=120&fit=crop&crop=face&q=80",signed:true,signedDate:"Dec 1, 2025"}] } };
 const initMembers = [
-  { id:1, name:"Anna K.", fullName:"Anna Karlsson", age:38, email:"anna.karlsson@gmail.com", phone:"+46 70 123 45 67", joined:"Jan 2021", initials:"AK", avatarSeed:0, photo:"https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120&h=120&fit=crop&crop=face&q=80", color:"#7C6FFF", colorSoft:"rgba(124,111,255,0.18)", role:"Account owner", spendMonth:4820, spendLimit:8000, cards:2, goals:1, status:"Within limit", statusColor:C.green, statusBg:C.greenSoft,
+  { id:1, name:"Anna K.", fullName:"Anna Karlsson", age:38, email:"anna.karlsson@gmail.com", phone:"+46 70 123 45 67", joined:"Jan 2021", initials:"AK", avatarSeed:0, photo:"https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120&h=120&fit=crop&crop=face&q=80", color:"#7C6FFF", colorSoft:"rgba(124,111,255,0.18)", role:"Parent", spendMonth:4820, spendLimit:24350, cards:2, goals:1, status:"Within limit", statusColor:C.green, statusBg:C.greenSoft,
     transactions:[{merchant:"ICA Maxi",amount:-642,date:"Today",cat:"Groceries"},{merchant:"Spotify",amount:-99,date:"Yesterday",cat:"Subscriptions"},{merchant:"H&M Online",amount:-1190,date:"Mar 22",cat:"Shopping"}],
-    savingsGoal:{name:"Summer holiday",desc:"Family trip to Greece this summer!",emoji:"🏖",color:"#7C6FFF",saved:12400,target:20000,monthly:1200,autoSave:true,completion:"Aug 2025",photo:"https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=400&h=250&fit=crop&q=80"} },
-  { id:2, name:"Erik K.", fullName:"Erik Karlsson", age:40, email:"erik.karlsson@gmail.com", phone:"+46 70 987 65 43", joined:"Jan 2021", initials:"EK", avatarSeed:1, photo:"https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=120&h=120&fit=crop&crop=face&q=80", color:"#34D399", colorSoft:"rgba(52,211,153,0.18)", role:"Member", spendMonth:2310, spendLimit:3000, cards:1, goals:2, status:"Close to limit", statusColor:C.amber, statusBg:C.amberSoft,
-    transactions:[{merchant:"Steam",amount:-399,date:"Today",cat:"Gaming"},{merchant:"McDonald's",amount:-89,date:"Mar 23",cat:"Food"},{merchant:"Elgiganten",amount:-1299,date:"Mar 20",cat:"Electronics"}],
+    savingsGoal:{name:"Wellness retreat",desc:"A solo spa weekend to recharge — just for me. Booking a wellness resort in Dalarna for autumn.",emoji:"🧘",color:"#7C6FFF",saved:2800,target:8000,monthly:500,autoSave:false,completion:"Oct 2026",photo:"https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=400&h=250&fit=crop&q=80"} },
+  { id:2, name:"Erik K.", fullName:"Erik Karlsson", age:40, email:"erik.karlsson@gmail.com", phone:"+46 70 987 65 43", joined:"Jan 2021", initials:"EK", avatarSeed:1, photo:"https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=120&h=120&fit=crop&crop=face&q=80", color:"#34D399", colorSoft:"rgba(52,211,153,0.18)", role:"Parent", spendMonth:7420, spendLimit:24350, cards:1, goals:2, status:"Within limit", statusColor:C.green, statusBg:C.greenSoft,
+    transactions:[{merchant:"Steam",amount:-399,date:"Today",cat:"Gaming"},{merchant:"IKEA",amount:-2290,date:"Mar 23",cat:"Shopping"},{merchant:"Systembolaget",amount:-890,date:"Mar 22",cat:"Other"},{merchant:"McDonald's",amount:-89,date:"Mar 21",cat:"Food"},{merchant:"Foodora",amount:-343,date:"Mar 20",cat:"Food"},{merchant:"Elgiganten",amount:-1299,date:"Mar 18",cat:"Electronics"},{merchant:"Lindex",amount:-910,date:"Mar 15",cat:"Shopping"},{merchant:"Pharmacy",amount:-312,date:"Mar 12",cat:"Other"},{merchant:"Burger King",amount:-112,date:"Mar 10",cat:"Food"},{merchant:"Parking",amount:-776,date:"Mar 8",cat:"Other"}],
     savingsGoal:{name:"New laptop",desc:"Saving up for a MacBook Pro for school and music production.",emoji:"💻",color:"#34D399",saved:4800,target:12000,monthly:685,autoSave:false,completion:"Oct 2026",photo:"https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=400&h=250&fit=crop&q=80"} },
   { id:3, name:"Maja K.", fullName:"Maja Karlsson", age:16, email:"maja.karlsson@gmail.com", phone:"+46 73 555 12 34", joined:"Mar 2022", initials:"MK", avatarSeed:2, photo:"https://images.unsplash.com/photo-1517841905240-472988babdf9?w=120&h=120&fit=crop&crop=face&q=80", color:"#F472B6", colorSoft:"rgba(244,114,182,0.18)", role:"Child", spendMonth:410, spendLimit:1000, cards:1, goals:1, status:"Within limit", statusColor:C.green, statusBg:C.greenSoft,
     transactions:[{merchant:"Hemköp",amount:-112,date:"Mar 23",cat:"Groceries"},{merchant:"Willys",amount:-298,date:"Mar 21",cat:"Groceries"}],
-    savingsGoal:{name:"New bike",desc:"A shiny red bike for adventures in the neighbourhood!",emoji:"🚲",color:"#F472B6",saved:1200,target:2500,monthly:300,autoSave:true,completion:"Jun 2025",photo:"https://images.unsplash.com/photo-1532298229144-0ec0c57515c7?w=400&h=250&fit=crop&q=80"} },
+    savingsGoal:{name:"New bike",desc:"A shiny red bike for adventures in the neighbourhood!",emoji:"🚲",color:"#F472B6",saved:1200,target:2500,monthly:300,allowance:100,autoSave:true,completion:"Jun 2025",photo:"https://images.unsplash.com/photo-1485965120184-e220f721d03e?w=400&h=250&fit=crop&q=80"} },
+  { id:4, name:"Lucas K.", fullName:"Lucas Karlsson", age:9, email:"", phone:"", joined:"Jan 2023", initials:"LK", avatarSeed:3, photo:"/lucas.jpg", color:"#FBBF24", colorSoft:"rgba(251,191,36,0.18)", role:"Child", spendMonth:300, spendLimit:300, cards:1, goals:1, status:"At limit", statusColor:C.red, statusBg:C.redSoft,
+    transactions:[{merchant:"Roblox",amount:-180,date:"Today",cat:"Gaming"},{merchant:"Hemköp",amount:-45,date:"Mar 23",cat:"Groceries"},{merchant:"Leksaker.se",amount:-75,date:"Mar 18",cat:"Shopping"}],
+    savingsGoal:{name:"LEGO Technic",desc:"Saving up for the big LEGO Technic set!",emoji:"🧱",color:"#FBBF24",saved:380,target:800,monthly:100,allowance:50,autoSave:true,completion:"Aug 2025",photo:"https://images.unsplash.com/photo-1587654780291-39c9404d746b?w=400&h=250&fit=crop&q=80"} },
 ];
 const EXPENSE_DATA = {
-  "Mar 2026":{ total:7540, categories:[{name:"Groceries",amount:2340,color:"#F472B6",icon:"🛒"},{name:"Food & dining",amount:1100,color:"#FBBF24",icon:"🍔"},{name:"Shopping",amount:1290,color:"#7C6FFF",icon:"🛍"},{name:"Gaming",amount:399,color:"#34D399",icon:"🎮"},{name:"Subscriptions",amount:99,color:"#60A5FA",icon:"🔄"},{name:"Electronics",amount:1299,color:"#F87171",icon:"💻"},{name:"Other",amount:1013,color:"#94A3B8",icon:"📦"}], members:[{name:"Anna K.",color:"#7C6FFF",amount:4820},{name:"Erik K.",color:"#34D399",amount:2310},{name:"Maja K.",color:"#F472B6",amount:410}]},
+  "Mar 2026":{ total:12950, categories:[{name:"Groceries",amount:2385,color:"#F472B6",icon:"🛒"},{name:"Food & dining",amount:1643,color:"#FBBF24",icon:"🍔"},{name:"Shopping",amount:4490,color:"#7C6FFF",icon:"🛍"},{name:"Gaming",amount:579,color:"#34D399",icon:"🎮"},{name:"Subscriptions",amount:99,color:"#60A5FA",icon:"🔄"},{name:"Electronics",amount:1299,color:"#F87171",icon:"💻"},{name:"Other",amount:1978,color:"#94A3B8",icon:"📦"}], members:[{name:"Anna K.",color:"#7C6FFF",amount:4820},{name:"Erik K.",color:"#34D399",amount:7420},{name:"Maja K.",color:"#F472B6",amount:410},{name:"Lucas K.",color:"#FBBF24",amount:300}]},
   "Feb 2026":{ total:6820, categories:[{name:"Groceries",amount:2100,color:"#F472B6",icon:"🛒"},{name:"Food & dining",amount:950,color:"#FBBF24",icon:"🍔"},{name:"Shopping",amount:1800,color:"#7C6FFF",icon:"🛍"},{name:"Gaming",amount:299,color:"#34D399",icon:"🎮"},{name:"Subscriptions",amount:99,color:"#60A5FA",icon:"🔄"},{name:"Electronics",amount:890,color:"#F87171",icon:"💻"},{name:"Other",amount:682,color:"#94A3B8",icon:"📦"}], members:[{name:"Anna K.",color:"#7C6FFF",amount:4200},{name:"Erik K.",color:"#34D399",amount:2100},{name:"Maja K.",color:"#F472B6",amount:520}]},
   "Jan 2026":{ total:8100, categories:[{name:"Groceries",amount:2500,color:"#F472B6",icon:"🛒"},{name:"Food & dining",amount:1400,color:"#FBBF24",icon:"🍔"},{name:"Shopping",amount:2200,color:"#7C6FFF",icon:"🛍"},{name:"Gaming",amount:450,color:"#34D399",icon:"🎮"},{name:"Subscriptions",amount:198,color:"#60A5FA",icon:"🔄"},{name:"Electronics",amount:650,color:"#F87171",icon:"💻"},{name:"Other",amount:702,color:"#94A3B8",icon:"📦"}], members:[{name:"Anna K.",color:"#7C6FFF",amount:5100},{name:"Erik K.",color:"#34D399",amount:2600},{name:"Maja K.",color:"#F472B6",amount:400}]},
 };
@@ -101,10 +174,10 @@ const DEALS = [
   { id:6, partner:"Spotify", logo:"🎵", category:"Subscriptions", tag:"Based on your spending", tagColor:"#60A5FA", title:"Family plan — save 40%", desc:"Switch to the Spotify Family plan and save.", saving:"Save ~80 kr/mo", color:"#60A5FA", colorSoft:"rgba(96,165,250,0.15)", photo:"https://images.unsplash.com/photo-1614680376573-df3480f0c6ff?w=300&h=160&fit=crop&q=80" },
 ];
 const NOTIFICATIONS = [
-  { id:1, icon:"⚠️", color:C.amber, bg:C.amberSoft, title:"Erik is close to his limit", body:"Erik has used 77% of his monthly spending limit.", time:"Just now", unread:true },
-  { id:2, icon:"🎯", color:C.green, bg:C.greenSoft, title:"Maja's bike goal: 48%", body:"Maja reached 48% of her savings goal for the new bike!", time:"2h ago", unread:true },
-  { id:3, icon:"💡", color:C.accent, bg:C.accentSoft, title:"New partner deal for you", body:"Booking.com: up to 20% off hotels.", time:"Yesterday", unread:false },
-  { id:4, icon:"🛟", color:"#7C6FFF", bg:"rgba(124,111,255,0.15)", title:"Buffer account topped up", body:"Anna deposited 1 200 kr to the shared buffer account.", time:"Yesterday", unread:false },
+  { id:1, icon:"💡", color:C.amber, bg:C.amberSoft, title:"Erik spending higher than Anna", body:"Erik has spent 7 420 kr this month vs Anna's 4 820 kr — both well within their 24 350 kr limits.", time:"Just now", unread:true, action:"limits" },
+  { id:2, icon:"🎯", color:C.green, bg:C.greenSoft, title:"Maja's bike goal: 48%", body:"Maja reached 48% of her savings goal for the new bike!", time:"2h ago", unread:true, action:"maja-goal" },
+  { id:3, icon:"💡", color:C.accent, bg:C.accentSoft, title:"New partner deal for you", body:"Booking.com: up to 20% off hotels.", time:"Yesterday", unread:false, action:"deals" },
+  { id:4, icon:"🛟", color:"#7C6FFF", bg:"rgba(124,111,255,0.15)", title:"Buffer account topped up", body:"Anna deposited 1 200 kr to the shared buffer account.", time:"Yesterday", unread:false, action:"buffer" },
   { id:5, icon:"📊", color:"#60A5FA", bg:"rgba(96,165,250,0.15)", title:"March report is ready", body:"Your family spent 7 540 kr in March. Tap to view your full monthly summary.", time:"Apr 1", unread:true, action:"monthly" },
 ];
 const ALL_PARTNERS = [
@@ -144,13 +217,13 @@ function Avatar({ m, size=40 }) {
 function Bar({ value, max, color, height=3 }) {
   const pct = Math.min(100, Math.round((value/max)*100));
   const fill = pct>=85?C.red:pct>=70?C.amber:color;
-  return <div style={{height,borderRadius:999,background:"rgba(255,255,255,0.07)",overflow:"hidden"}}><div style={{width:pct+"%",height:"100%",borderRadius:999,background:fill}}/></div>;
+  return <div style={{height,borderRadius:999,background:C.border,overflow:"hidden"}}><div style={{width:pct+"%",height:"100%",borderRadius:999,background:fill}}/></div>;
 }
 function Badge({ label, color, bg }) {
-  return <span style={{fontSize:10,fontWeight:500,color,background:bg,borderRadius:999,padding:"2px 7px",whiteSpace:"nowrap"}}>{label}</span>;
+  return <span style={{fontSize:12,fontWeight:500,color,background:bg,borderRadius:999,padding:"2px 7px",whiteSpace:"nowrap"}}>{label}</span>;
 }
 function BackBtn({ onClick, style: s }) {
-  return <button onClick={onClick} style={{background:"rgba(255,255,255,0.08)",border:"none",borderRadius:"50%",width:34,height:34,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",flexShrink:0,...s}}>
+  return <button onClick={onClick} style={{background:C.card,border:"1px solid "+C.border,borderRadius:"50%",width:34,height:34,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",flexShrink:0,...s}}>
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={C.t1} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
   </button>;
 }
@@ -159,7 +232,7 @@ function Tile({ children, style, onClick }) {
   return <div onClick={onClick} onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)} style={{background:hov&&onClick?C.cardHover:C.card,borderRadius:18,border:"1px solid "+C.border,padding:16,cursor:onClick?"pointer":"default",...style}}>{children}</div>;
 }
 function TileLabel({ children }) {
-  return <div style={{fontSize:11,fontWeight:500,color:C.t3,textTransform:"uppercase",letterSpacing:1,marginBottom:10}}>{children}</div>;
+  return <div style={{fontSize:13,fontWeight:500,color:C.t3,textTransform:"uppercase",letterSpacing:1,marginBottom:10}}>{children}</div>;
 }
 
 function LockIcon({ locked }) {
@@ -236,8 +309,8 @@ function NearbyMapView({ stores, onClose, onAdd, added }) {
               <div style={{display:"flex",flexDirection:"column",alignItems:"center"}}>
                 {isSel && (
                   <div style={{background:C.surface,border:"1px solid "+C.border,borderRadius:10,padding:"6px 10px",marginBottom:4,whiteSpace:"nowrap",boxShadow:"0 4px 16px rgba(0,0,0,0.5)"}}>
-                    <div style={{fontSize:11,fontWeight:600,color:C.t1}}>{s.name}</div>
-                    <div style={{fontSize:10,color:C.t3}}>{"📍 "+s.dist}</div>
+                    <div style={{fontSize:13,fontWeight:600,color:C.t1}}>{s.name}</div>
+                    <div style={{fontSize:12,color:C.t3}}>{"📍 "+s.dist}</div>
                   </div>
                 )}
                 <div style={{width:isSel?38:30,height:isSel?38:30,borderRadius:"50%",background:s.color,border:"2.5px solid #fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:isSel?18:14,boxShadow:"0 2px 8px rgba(0,0,0,0.4)",transition:"all 0.2s"}}>{s.icon}</div>
@@ -248,14 +321,14 @@ function NearbyMapView({ stores, onClose, onAdd, added }) {
         <button onClick={onClose} style={{position:"absolute",top:12,left:12,zIndex:12,width:34,height:34,borderRadius:"50%",background:"rgba(0,0,0,0.5)",backdropFilter:"blur(8px)",border:"1px solid rgba(255,255,255,0.15)",color:"#fff",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M15 18l-6-6 6-6"/></svg>
         </button>
-        <div style={{position:"absolute",bottom:4,right:6,fontSize:8,color:"rgba(255,255,255,0.3)"}}>© OpenStreetMap</div>
+        <div style={{position:"absolute",bottom:4,right:6,fontSize:12,color:"rgba(255,255,255,0.3)"}}>© OpenStreetMap</div>
       </div>
       {/* Bottom sheet */}
       <div style={{flex:1,background:C.surface,borderRadius:"20px 20px 0 0",marginTop:-16,position:"relative",zIndex:10,display:"flex",flexDirection:"column",overflow:"hidden"}}>
         <div style={{display:"flex",justifyContent:"center",padding:"10px 0 6px"}}><div style={{width:36,height:4,borderRadius:999,background:"rgba(255,255,255,0.15)"}}/></div>
         <div style={{padding:"4px 20px 10px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <div style={{fontSize:15,fontWeight:600,color:C.t1}}>Nearby partners</div>
-          <div style={{fontSize:11,color:C.t3}}>{stores.length+" found"}</div>
+          <div style={{fontSize:13,color:C.t3}}>{stores.length+" found"}</div>
         </div>
         <div style={{flex:1,overflowY:"auto",scrollbarWidth:"none",padding:"0 16px 20px"}}>
           {stores.map(s=>(
@@ -263,7 +336,7 @@ function NearbyMapView({ stores, onClose, onAdd, added }) {
               <div style={{width:42,height:42,borderRadius:12,background:s.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>{s.icon}</div>
               <div style={{flex:1,minWidth:0}}>
                 <div style={{fontSize:13,fontWeight:600,color:C.t1}}>{s.name}</div>
-                <div style={{fontSize:11,color:C.t3,marginTop:2}}>{"📍 "+s.dist}</div>
+                <div style={{fontSize:13,color:C.t3,marginTop:2}}>{"📍 "+s.dist}</div>
               </div>
               <button onClick={(e)=>{e.stopPropagation();onAdd(s.id);}} style={{background:added.includes(s.id)?"rgba(52,211,153,0.15)":C.accent,border:added.includes(s.id)?"1.5px solid "+C.green:"none",borderRadius:20,padding:"7px 16px",fontSize:12,fontWeight:600,color:added.includes(s.id)?C.green:"#fff",cursor:"pointer",flexShrink:0}}>
                 {added.includes(s.id)?"Added":"Add"}
@@ -301,7 +374,7 @@ function AddMembership({ onBack }) {
       <div style={{width:52,height:52,borderRadius:14,background:p.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,flexShrink:0}}>{p.icon}</div>
       <div style={{flex:1,minWidth:0}}>
         <div style={{fontSize:14,fontWeight:600,color:C.t1}}>{p.name}</div>
-        {showDist ? <div style={{fontSize:11,color:C.t3,marginTop:2}}>{"📍 "+p.dist}</div> : <div><div style={{fontSize:12,color:C.t2,marginTop:1}}>{p.desc}</div><span style={{display:"inline-block",marginTop:4,fontSize:10,color:C.t3,background:"rgba(255,255,255,0.07)",borderRadius:20,padding:"2px 8px"}}>{p.cat}</span></div>}
+        {showDist ? <div style={{fontSize:13,color:C.t3,marginTop:2}}>{"📍 "+p.dist}</div> : <div><div style={{fontSize:12,color:C.t2,marginTop:1}}>{p.desc}</div><span style={{display:"inline-block",marginTop:4,fontSize:12,color:C.t3,background:C.border,borderRadius:20,padding:"2px 8px"}}>{p.cat}</span></div>}
       </div>
       <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4,flexShrink:0}}>
         <button onClick={()=>toggle(p.id)} style={{background:added.includes(p.id)?"rgba(52,211,153,0.15)":C.accent,border:added.includes(p.id)?"1.5px solid "+C.green:"none",borderRadius:20,padding:"7px 18px",fontSize:13,fontWeight:600,color:added.includes(p.id)?C.green:"#fff",cursor:"pointer",minWidth:64}}>
@@ -340,13 +413,13 @@ function AddMembership({ onBack }) {
           <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search stores, categories..." style={{flex:1,background:"none",border:"none",color:C.t1,fontSize:13,outline:"none"}}/>
         </div>
         <ScrollRow style={{display:"flex",gap:8,marginBottom:20,paddingBottom:2}}>
-          {filters.map(f=><button key={f} onClick={()=>setActiveFilter(f)} style={{flexShrink:0,background:activeFilter===f?C.accent:"rgba(255,255,255,0.06)",border:"none",borderRadius:20,padding:"6px 16px",fontSize:12,fontWeight:activeFilter===f?600:400,color:activeFilter===f?"#fff":C.t2,cursor:"pointer"}}>{f}</button>)}
+          {filters.map(f=><button key={f} onClick={()=>setActiveFilter(f)} style={{flexShrink:0,background:activeFilter===f?C.accent:C.card,border:"none",borderRadius:20,padding:"6px 16px",fontSize:12,fontWeight:activeFilter===f?600:400,color:activeFilter===f?"#fff":C.t2,cursor:"pointer"}}>{f}</button>)}
         </ScrollRow>
         {!search && activeFilter==="All" && (
           <div style={{marginBottom:24}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
               <div style={{fontSize:16,fontWeight:700,color:C.t1}}>Nearby right now</div>
-              <button onClick={()=>setShowMap(true)} style={{background:"rgba(255,255,255,0.06)",border:"1px solid "+C.border,borderRadius:20,padding:"5px 12px",fontSize:11,fontWeight:500,color:C.t2,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}>
+              <button onClick={()=>setShowMap(true)} style={{background:C.card,border:"1px solid "+C.border,borderRadius:20,padding:"5px 12px",fontSize:13,fontWeight:500,color:C.t2,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
                 View map
               </button>
@@ -360,7 +433,7 @@ function AddMembership({ onBack }) {
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
               {RECOMMENDED.map(r=>(
                 <div key={r.id} onClick={()=>toggle(r.id)} style={{borderRadius:16,overflow:"hidden",cursor:"pointer",border:"1px solid "+C.border,position:"relative",height:130,background:"linear-gradient(160deg,"+r.color+"cc,"+r.color+"44)",display:"flex",alignItems:"flex-end",padding:10}}>
-                  <div><div style={{display:"inline-block",background:r.color,borderRadius:6,padding:"2px 8px",fontSize:10,fontWeight:700,color:"#fff",marginBottom:5}}>{r.name}</div><div style={{fontSize:11,fontWeight:500,color:"#fff",lineHeight:1.3}}>{r.reason}</div></div>
+                  <div><div style={{display:"inline-block",background:r.color,borderRadius:6,padding:"2px 8px",fontSize:12,fontWeight:700,color:"#fff",marginBottom:5}}>{r.name}</div><div style={{fontSize:13,fontWeight:500,color:"#fff",lineHeight:1.3}}>{r.reason}</div></div>
                   {added.includes(r.id)&&<div style={{position:"absolute",top:8,right:8,width:22,height:22,borderRadius:"50%",background:C.green,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,color:"#fff",fontWeight:700}}>{"+"}</div>}
                 </div>
               ))}
@@ -381,31 +454,127 @@ function AddMembership({ onBack }) {
 }
 
 // ── NOTIFICATIONS ──────────────────────────────────────────────────────────────
-function NotificationsPanel({ onClose, onAction }) {
+function NotifPopup({ n, members, buffer, onClose, onAction }) {
+  const erik = members?.find(m=>m.id===2);
+  const maja = members?.find(m=>m.id===3);
+  const erikPct = erik ? Math.round((erik.spendMonth/erik.spendLimit)*100) : 0;
+  const majaGoal = maja?.savingsGoal;
+  const majaPct = majaGoal ? Math.round((majaGoal.saved/majaGoal.target)*100) : 0;
+  const content = ()=>{
+    if(n.action==="limits"&&erik) return (
+      <div>
+        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
+          <Avatar m={erik} size={44}/>
+          <div><div style={{fontSize:16,fontWeight:600,color:C.t1}}>{erik.name}</div><div style={{fontSize:13,color:C.t3}}>Monthly spending</div></div>
+          <div style={{marginLeft:"auto",textAlign:"right"}}><div style={{fontSize:18,fontWeight:600,color:C.amber}}>{erikPct+"%"}</div><div style={{fontSize:12,color:C.t3}}>of limit</div></div>
+        </div>
+        <Bar value={erik.spendMonth} max={erik.spendLimit} color={C.amber}/>
+        <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:C.t3,marginTop:6,marginBottom:16}}><span>{fmt(erik.spendMonth)+" kr spent"}</span><span>{fmt(erik.spendLimit)+" kr limit"}</span></div>
+        <div style={{background:C.amberSoft,borderRadius:12,padding:"10px 14px",fontSize:13,color:C.amber,marginBottom:16}}>{"Only "+fmt(erik.spendLimit-erik.spendMonth)+" kr remaining this month."}</div>
+        <button onClick={onClose} style={{width:"100%",background:C.accent,border:"none",borderRadius:12,padding:"12px 0",fontSize:14,fontWeight:600,color:"#fff",cursor:"pointer"}}>Got it</button>
+      </div>
+    );
+    if(n.action==="maja-goal"&&maja&&majaGoal) return (
+      <div>
+        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
+          <div style={{width:44,height:44,borderRadius:12,background:majaGoal.color+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,overflow:"hidden"}}>{majaGoal.photo?<img src={majaGoal.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>:majaGoal.emoji}</div>
+          <div><div style={{fontSize:16,fontWeight:600,color:C.t1}}>{majaGoal.name}</div><div style={{fontSize:13,color:C.t3}}>{"Maja's goal · "+majaPct+"% reached"}</div></div>
+        </div>
+        <Bar value={majaGoal.saved} max={majaGoal.target} color={majaGoal.color}/>
+        <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:C.t3,marginTop:6,marginBottom:16}}><span>{fmt(majaGoal.saved)+" kr saved"}</span><span>{fmt(majaGoal.target)+" kr goal"}</span></div>
+        <div style={{display:"flex",gap:10,marginBottom:4}}>
+          <div style={{flex:1,background:C.card,borderRadius:12,padding:"10px 14px",border:"1px solid "+C.border}}><div style={{fontSize:11,color:C.t3,marginBottom:2}}>Monthly</div><div style={{fontSize:14,fontWeight:500,color:C.t1}}>{fmt(majaGoal.monthly)+" kr"}</div></div>
+          <div style={{flex:1,background:C.card,borderRadius:12,padding:"10px 14px",border:"1px solid "+C.border}}><div style={{fontSize:11,color:C.t3,marginBottom:2}}>Remaining</div><div style={{fontSize:14,fontWeight:500,color:C.t1}}>{fmt(majaGoal.target-majaGoal.saved)+" kr"}</div></div>
+          <div style={{flex:1,background:C.card,borderRadius:12,padding:"10px 14px",border:"1px solid "+C.border}}><div style={{fontSize:11,color:C.t3,marginBottom:2}}>Est. done</div><div style={{fontSize:14,fontWeight:500,color:C.t1}}>{majaGoal.completion}</div></div>
+        </div>
+        <button onClick={()=>{onClose();onAction&&onAction("maja-goal");}} style={{width:"100%",marginTop:16,background:majaGoal.color,border:"none",borderRadius:12,padding:"12px 0",fontSize:14,fontWeight:600,color:"#fff",cursor:"pointer"}}>View goal →</button>
+      </div>
+    );
+    if(n.action==="deals") return (
+      <div>
+        <div style={{background:"linear-gradient(135deg,rgba(124,111,255,0.15),rgba(52,211,153,0.1))",borderRadius:14,padding:"16px",marginBottom:16,border:"1px solid rgba(124,111,255,0.2)"}}>
+          <div style={{fontSize:28,marginBottom:8}}>✈️</div>
+          <div style={{fontSize:16,fontWeight:600,color:C.t1,marginBottom:4}}>Up to 20% off hotels</div>
+          <div style={{fontSize:13,color:C.t2,lineHeight:1.5}}>{"Exclusive family rates on summer destinations via Booking.com. Book before April 30 and save up to 2 400 kr on your summer holiday."}</div>
+        </div>
+        <div style={{background:C.greenSoft,borderRadius:12,padding:"10px 14px",fontSize:13,color:C.green,marginBottom:16}}>💡 Matches Anna's Summer holiday goal</div>
+        <button onClick={onClose} style={{width:"100%",background:C.accent,border:"none",borderRadius:12,padding:"12px 0",fontSize:14,fontWeight:600,color:"#fff",cursor:"pointer"}}>View deal</button>
+      </div>
+    );
+    if(n.action==="buffer"&&buffer) return (
+      <div>
+        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
+          <div style={{width:44,height:44,borderRadius:"50%",background:"rgba(124,111,255,0.2)",border:"2px solid #7C6FFF",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>🛟</div>
+          <div><div style={{fontSize:16,fontWeight:600,color:C.t1}}>Buffer account</div><div style={{fontSize:13,color:C.t3}}>Joint · Anna and Erik</div></div>
+          <div style={{marginLeft:"auto",textAlign:"right"}}><div style={{fontSize:18,fontWeight:600,color:"#7C6FFF"}}>{fmt(buffer.balance)+" kr"}</div></div>
+        </div>
+        <div style={{background:C.card,borderRadius:12,border:"1px solid "+C.border,padding:"12px 14px",marginBottom:16}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",paddingBottom:10,borderBottom:"1px solid "+C.border,marginBottom:10}}><div style={{fontSize:13,color:C.t1}}>Anna deposited</div><div style={{fontSize:13,fontWeight:500,color:C.green}}>+1 200 kr</div></div>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div style={{fontSize:13,color:C.t3}}>Monthly auto-save</div><div style={{fontSize:13,color:C.t2}}>{"+"+fmt(buffer.monthly)+" kr/mo"}</div></div>
+        </div>
+        <button onClick={onClose} style={{width:"100%",background:C.accent,border:"none",borderRadius:12,padding:"12px 0",fontSize:14,fontWeight:600,color:"#fff",cursor:"pointer"}}>Got it</button>
+      </div>
+    );
+    if(n.action==="monthly") return (
+      <div>
+        <div style={{background:"linear-gradient(135deg,rgba(96,165,250,0.15),rgba(96,165,250,0.05))",borderRadius:14,padding:"16px",marginBottom:16,border:"1px solid rgba(96,165,250,0.25)"}}>
+          <div style={{fontSize:13,color:C.t3,marginBottom:4}}>Total spent in March</div>
+          <div style={{fontSize:30,fontWeight:600,color:C.t1}}>{"12 950 "}<span style={{fontSize:15,color:C.t2}}>kr</span></div>
+        </div>
+        {[{name:"Anna K.",color:"#7C6FFF",amount:4820},{name:"Erik K.",color:"#34D399",amount:7420},{name:"Maja K.",color:"#F472B6",amount:410},{name:"Lucas K.",color:"#FBBF24",amount:300}].map((m,i)=>(
+          <div key={i} style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
+            <div style={{width:8,height:8,borderRadius:"50%",background:m.color,flexShrink:0}}/>
+            <div style={{fontSize:13,color:C.t2,flex:1}}>{m.name}</div>
+            <div style={{fontSize:13,fontWeight:500,color:C.t1}}>{fmt(m.amount)+" kr"}</div>
+          </div>
+        ))}
+        <button onClick={onClose} style={{width:"100%",marginTop:8,background:C.accent,border:"none",borderRadius:12,padding:"12px 0",fontSize:14,fontWeight:600,color:"#fff",cursor:"pointer"}}>View full report</button>
+      </div>
+    );
+    return null;
+  };
+  return (
+    <div onClick={onClose} style={{position:"absolute",inset:0,zIndex:200,background:"rgba(0,0,0,0.5)",display:"flex",flexDirection:"column",justifyContent:"flex-end",borderRadius:36}}>
+      <div onClick={e=>e.stopPropagation()} style={{background:C.surface,borderRadius:"24px 24px 0 0",padding:"8px 20px 36px",borderTop:"1px solid "+C.border}}>
+        <div style={{width:40,height:4,borderRadius:999,background:"rgba(255,255,255,0.15)",margin:"10px auto 20px"}}/>
+        <div style={{fontSize:15,fontWeight:600,color:C.t1,marginBottom:16}}>{n.title}</div>
+        {content()}
+      </div>
+    </div>
+  );
+}
+
+function NotificationsPanel({ onClose, onAction, members, buffer }) {
   const [items, setItems] = useState(NOTIFICATIONS);
+  const [activeNotif, setActiveNotif] = useState(null);
   const unread = items.filter(n=>n.unread).length;
+  const handleTap = (n) => {
+    setItems(ns=>ns.map(x=>x.id===n.id?{...x,unread:false}:x));
+    setActiveNotif(n);
+  };
   return (
     <div style={{position:"absolute",inset:0,zIndex:50,display:"flex",flexDirection:"column",background:C.bg}}>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"16px 20px",background:C.surface,borderBottom:"1px solid "+C.border,flexShrink:0}}>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
           <button onClick={onClose} style={{background:"none",border:"none",color:C.t2,fontSize:22,cursor:"pointer",padding:0}}>{"<"}</button>
           <span style={{fontSize:16,fontWeight:500,color:C.t1}}>Notifications</span>
-          {unread>0&&<span style={{background:C.red,borderRadius:999,fontSize:10,fontWeight:600,color:"#fff",padding:"2px 7px"}}>{unread+" new"}</span>}
+          {unread>0&&<span style={{background:C.red,borderRadius:999,fontSize:12,fontWeight:600,color:"#fff",padding:"2px 7px"}}>{unread+" new"}</span>}
         </div>
         {unread>0&&<button onClick={()=>setItems(ns=>ns.map(n=>({...n,unread:false})))} style={{background:"none",border:"none",color:C.accent,fontSize:12,cursor:"pointer"}}>Mark all read</button>}
       </div>
       <div style={{flex:1,overflowY:"auto",scrollbarWidth:"none",padding:"12px 16px 24px"}}>
         {items.map(n=>(
-          <div key={n.id} onClick={()=>{setItems(ns=>ns.map(x=>x.id===n.id?{...x,unread:false}:x));if(n.action&&onAction)onAction(n.action);}} style={{display:"flex",gap:12,padding:14,borderRadius:16,background:n.unread?"rgba(124,111,255,0.07)":C.card,border:"1px solid "+(n.unread?"rgba(124,111,255,0.2)":C.border),marginBottom:10,cursor:"pointer",position:"relative"}}>
+          <div key={n.id} onClick={()=>handleTap(n)} style={{display:"flex",gap:12,padding:14,borderRadius:16,background:n.unread?"rgba(124,111,255,0.07)":C.card,border:"1px solid "+(n.unread?"rgba(124,111,255,0.2)":C.border),marginBottom:10,cursor:"pointer",position:"relative"}}>
             <div style={{width:42,height:42,borderRadius:12,background:n.bg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>{n.icon}</div>
             <div style={{flex:1,minWidth:0}}>
-              <div style={{display:"flex",justifyContent:"space-between",gap:8,marginBottom:3}}><div style={{fontSize:13,fontWeight:500,color:C.t1,lineHeight:1.3}}>{n.title}</div><div style={{fontSize:10,color:C.t3,whiteSpace:"nowrap",flexShrink:0}}>{n.time}</div></div>
+              <div style={{display:"flex",justifyContent:"space-between",gap:8,marginBottom:3}}><div style={{fontSize:13,fontWeight:500,color:C.t1,lineHeight:1.3}}>{n.title}</div><div style={{fontSize:12,color:C.t3,whiteSpace:"nowrap",flexShrink:0}}>{n.time}</div></div>
               <div style={{fontSize:12,color:C.t2,lineHeight:1.5}}>{n.body}</div>
             </div>
             {n.unread&&<div style={{position:"absolute",top:14,right:14,width:8,height:8,borderRadius:"50%",background:C.accent}}/>}
           </div>
         ))}
       </div>
+      {activeNotif&&<NotifPopup n={activeNotif} members={members} buffer={buffer} onClose={()=>setActiveNotif(null)} onAction={onAction}/>}
     </div>
   );
 }
@@ -431,23 +600,23 @@ function AIChat({ members, buffer, childFund, onClose }) {
     } catch(e) { setMessages(p=>[...p,{role:"assistant",content:"Something went wrong."}]); }
     setLoading(false);
   };
-  const suggested = ["How are we doing on savings?","Is Erik close to his limit?","When will Maja reach her bike goal?","How can we save more?"];
+  const suggested = ["How are we doing on savings?","How are Erik and Anna tracking?","When will Maja reach her bike goal?","How can we save more?"];
   return (
     <div style={{position:"absolute",inset:0,zIndex:50,display:"flex",flexDirection:"column",background:C.bg}}>
       <div style={{display:"flex",alignItems:"center",gap:12,padding:"14px 20px",background:C.surface,borderBottom:"1px solid "+C.border,flexShrink:0}}>
         <button onClick={onClose} style={{background:"none",border:"none",color:C.t2,fontSize:22,cursor:"pointer",padding:0}}>{"<"}</button>
         <div style={{width:36,height:36,borderRadius:"50%",background:"linear-gradient(135deg,#7C6FFF,#34D399)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>{"~"}</div>
-        <div style={{flex:1}}><div style={{fontSize:15,fontWeight:500,color:C.t1}}>Resurs AI Assistant</div><div style={{fontSize:11,color:C.green,display:"flex",alignItems:"center",gap:4}}><div style={{width:6,height:6,borderRadius:"50%",background:C.green}}/>Online</div></div>
+        <div style={{flex:1}}><div style={{fontSize:15,fontWeight:500,color:C.t1}}>Resurs AI Assistant</div><div style={{fontSize:13,color:C.green,display:"flex",alignItems:"center",gap:4}}><div style={{width:6,height:6,borderRadius:"50%",background:C.green}}/>Online</div></div>
       </div>
       <div style={{flex:1,overflowY:"auto",scrollbarWidth:"none",padding:"16px 16px 8px"}}>
         {messages.map((msg,i)=>(
           <div key={i} style={{display:"flex",justifyContent:msg.role==="user"?"flex-end":"flex-start",marginBottom:12,gap:8,alignItems:"flex-end"}}>
             {msg.role==="assistant"&&<div style={{width:28,height:28,borderRadius:"50%",background:"linear-gradient(135deg,#7C6FFF,#34D399)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,flexShrink:0}}>{"~"}</div>}
-            <div style={{maxWidth:"78%",background:msg.role==="user"?"linear-gradient(135deg,#7C6FFF,#6055ee)":"rgba(255,255,255,0.06)",border:msg.role==="user"?"none":"1px solid "+C.border,borderRadius:msg.role==="user"?"18px 18px 4px 18px":"18px 18px 18px 4px",padding:"11px 14px",fontSize:13,color:C.t1,lineHeight:1.6,whiteSpace:"pre-wrap"}}>{msg.content}</div>
+            <div style={{maxWidth:"78%",background:msg.role==="user"?"linear-gradient(135deg,"+C.accent+","+C.accent+"cc)":C.card,border:msg.role==="user"?"none":"1px solid "+C.border,borderRadius:msg.role==="user"?"18px 18px 4px 18px":"18px 18px 18px 4px",padding:"11px 14px",fontSize:13,color:C.t1,lineHeight:1.6,whiteSpace:"pre-wrap"}}>{msg.content}</div>
           </div>
         ))}
         {loading&&<div style={{display:"flex",alignItems:"flex-end",gap:8,marginBottom:12}}><div style={{width:28,height:28,borderRadius:"50%",background:"linear-gradient(135deg,#7C6FFF,#34D399)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13}}>{"~"}</div><div style={{background:"rgba(255,255,255,0.06)",border:"1px solid "+C.border,borderRadius:"18px 18px 18px 4px",padding:"13px 16px",display:"flex",gap:5,alignItems:"center"}}>{[0,1,2].map(j=><div key={j} style={{width:7,height:7,borderRadius:"50%",background:C.accent,opacity:0.7}}/>)}</div></div>}
-        {messages.length===1&&<div style={{marginTop:8}}><div style={{fontSize:11,color:C.t3,marginBottom:10,textAlign:"center"}}>Suggested questions</div><div style={{display:"flex",flexDirection:"column",gap:8}}>{suggested.map((s,i)=><button key={i} onClick={()=>send(s)} style={{background:"rgba(124,111,255,0.08)",border:"1px solid rgba(124,111,255,0.25)",borderRadius:12,padding:"10px 14px",fontSize:12,color:C.accent,cursor:"pointer",textAlign:"left"}}>{s}</button>)}</div></div>}
+        {messages.length===1&&<div style={{marginTop:8}}><div style={{fontSize:13,color:C.t3,marginBottom:10,textAlign:"center"}}>Suggested questions</div><div style={{display:"flex",flexDirection:"column",gap:8}}>{suggested.map((s,i)=><button key={i} onClick={()=>send(s)} style={{background:"rgba(124,111,255,0.08)",border:"1px solid rgba(124,111,255,0.25)",borderRadius:12,padding:"10px 14px",fontSize:12,color:C.accent,cursor:"pointer",textAlign:"left"}}>{s}</button>)}</div></div>}
         <div ref={bottomRef}/>
       </div>
       <div style={{padding:"12px 16px 16px",background:C.surface,borderTop:"1px solid "+C.border,flexShrink:0}}>
@@ -455,11 +624,11 @@ function AIChat({ members, buffer, childFund, onClose }) {
           <div style={{flex:1,background:C.card,border:"1px solid "+C.border,borderRadius:16,padding:"10px 14px"}}>
             <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();send();}}} placeholder="Ask about your family's finances…" style={{width:"100%",background:"none",border:"none",color:C.t1,fontSize:13,outline:"none"}}/>
           </div>
-          <button onClick={()=>send()} disabled={!input.trim()||loading} style={{width:42,height:42,borderRadius:14,background:input.trim()&&!loading?"linear-gradient(135deg,#7C6FFF,#6055ee)":"rgba(255,255,255,0.07)",border:"none",display:"flex",alignItems:"center",justifyContent:"center",cursor:input.trim()&&!loading?"pointer":"default",flexShrink:0}}>
+          <button onClick={()=>send()} disabled={!input.trim()||loading} style={{width:42,height:42,borderRadius:14,background:input.trim()&&!loading?"linear-gradient(135deg,"+C.accent+","+C.accent+"cc)":C.card,border:"none",display:"flex",alignItems:"center",justifyContent:"center",cursor:input.trim()&&!loading?"pointer":"default",flexShrink:0}}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{opacity:input.trim()&&!loading?1:0.4}}><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
           </button>
         </div>
-        <div style={{fontSize:10,color:C.t3,textAlign:"center",marginTop:8}}>Powered by Claude</div>
+        <div style={{fontSize:12,color:C.t3,textAlign:"center",marginTop:8}}>Powered by Claude</div>
       </div>
     </div>
   );
@@ -469,7 +638,7 @@ function AIChat({ members, buffer, childFund, onClose }) {
 function InsightsOnly({ members, buffer, childFund, onOpenChat }) {
   const fallback = [
     {emoji:"💡",title:"Grocery savings",body:"Switch to ICA cashback — save ~320 kr/mo",color:"#F472B6"},
-    {emoji:"⚠️",title:"Erik near limit",body:"77% of monthly budget used",color:"#FBBF24"},
+    {emoji:"⚠️",title:"Erik near limit",body:"93% of monthly budget used",color:"#FBBF24"},
     {emoji:"🏖",title:"Holiday goal on track",body:"Anna needs 7 600 kr more by August",color:"#7C6FFF"},
   ];
   const [insights, setInsights] = useState(fallback);
@@ -496,19 +665,24 @@ function InsightsOnly({ members, buffer, childFund, onOpenChat }) {
 }
 
 // ── HEADER / FOOTER ────────────────────────────────────────────────────────────
-function Header({ title, showBack, onBack, onNotifications, unreadCount }) {
+function Header({ title, showBack, onBack, onNotifications, unreadCount, onInsights }) {
   return (
     <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"14px 20px",background:C.surface,borderBottom:"1px solid "+C.border,flexShrink:0}}>
       <div style={{display:"flex",alignItems:"center",gap:10}}>
         {showBack&&<BackBtn onClick={onBack} style={{width:30,height:30,marginRight:2}}/>}
         <span style={{fontSize:16,fontWeight:500,color:C.t1}}>{title}</span>
       </div>
-      <button onClick={onNotifications} style={{position:"relative",background:"none",border:"none",padding:0,cursor:"pointer"}}>
-        <div style={{width:34,height:34,borderRadius:"50%",background:C.card,border:"1px solid "+C.border,display:"flex",alignItems:"center",justifyContent:"center",color:C.t2}}>
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-        </div>
-        {unreadCount>0&&<div style={{position:"absolute",top:-3,right:-3,background:C.red,borderRadius:"50%",width:15,height:15,display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,fontWeight:600,color:"#fff",border:"1.5px solid "+C.surface}}>{unreadCount}</div>}
-      </button>
+      <div style={{display:"flex",alignItems:"center",gap:8}}>
+        <button onClick={onInsights} style={{position:"relative",background:"none",border:"none",padding:0,cursor:"pointer"}}>
+          <div style={{width:34,height:34,borderRadius:"50%",background:"linear-gradient(135deg,rgba(124,111,255,0.2),rgba(52,211,153,0.15))",border:"1px solid rgba(124,111,255,0.35)",display:"flex",alignItems:"center",justifyContent:"center",color:C.accent,fontSize:16}}>✦</div>
+        </button>
+        <button onClick={onNotifications} style={{position:"relative",background:"none",border:"none",padding:0,cursor:"pointer"}}>
+          <div style={{width:34,height:34,borderRadius:"50%",background:C.card,border:"1px solid "+C.border,display:"flex",alignItems:"center",justifyContent:"center",color:C.t2}}>
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          </div>
+          {unreadCount>0&&<div style={{position:"absolute",top:-3,right:-3,background:C.red,borderRadius:"50%",width:15,height:15,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:600,color:"#fff",border:"1.5px solid "+C.surface}}>{unreadCount}</div>}
+        </button>
+      </div>
     </div>
   );
 }
@@ -524,7 +698,7 @@ function Footer({ activeTab, onTab }) {
       {tabs.map(t=>(
         <button key={t.id} onClick={()=>onTab(t.id)} style={{flex:1,background:"none",border:"none",display:"flex",flexDirection:"column",alignItems:"center",gap:4,cursor:"pointer",color:activeTab===t.id?C.accent:C.t3,padding:"4px 0"}}>
           {t.icon}
-          <span style={{fontSize:11,fontWeight:activeTab===t.id?500:400}}>{t.label}</span>
+          <span style={{fontSize:13,fontWeight:activeTab===t.id?500:400}}>{t.label}</span>
           {activeTab===t.id&&<div style={{width:4,height:4,borderRadius:"50%",background:C.accent,marginTop:1}}/>}
         </button>
       ))}
@@ -533,52 +707,60 @@ function Footer({ activeTab, onTab }) {
 }
 
 // ── SAVINGS IN SERVICES ───────────────────────────────────────────────────────
-function SavingsInServices() {
-  const buffer = { balance:18500, monthly:2000 };
-  const childFund = { balance:9200, monthly:500 };
-  const goals = [
-    { name:"Summer holiday", emoji:"🏖", color:"#7C6FFF", saved:12400, target:20000, monthly:1200, who:"Anna K." },
-    { name:"New laptop", emoji:"💻", color:"#34D399", saved:4800, target:12000, monthly:685, who:"Erik K." },
-    { name:"New bike", emoji:"🚲", color:"#F472B6", saved:1200, target:2500, monthly:300, who:"Maja K." },
-  ];
-  const totalSaved = buffer.balance + childFund.balance + goals.reduce((s,g)=>s+g.saved,0);
+function SavingsInServices({ members, buffer, childFund, lucasFund, summerHoliday, onBuf, onCF, onLucasCF, onSH, onGoal }) {
+  const totalSaved = buffer.balance + childFund.balance + (lucasFund?.balance||0) + (summerHoliday?.saved||0) + members.reduce((s,m)=>s+m.savingsGoal.saved,0);
   return (
     <div style={{display:"flex",flexDirection:"column",gap:12}}>
       <div style={{background:"linear-gradient(135deg,rgba(124,111,255,0.15),rgba(52,211,153,0.08))",borderRadius:16,border:"1px solid rgba(124,111,255,0.25)",padding:"16px 18px"}}>
-        <div style={{fontSize:11,color:C.t3,marginBottom:4}}>Total family savings</div>
+        <div style={{fontSize:13,color:C.t3,marginBottom:4}}>Total family savings</div>
         <div style={{fontSize:28,fontWeight:500,color:C.t1}}>{fmt(totalSaved)+" "}<span style={{fontSize:14,color:C.t2}}>kr</span></div>
-        <div style={{fontSize:12,color:C.t2,marginTop:2}}>{"+"+fmt(buffer.monthly+childFund.monthly+goals.reduce((s,g)=>s+g.monthly,0))+" kr / month"}</div>
+        <div style={{fontSize:12,color:C.t2,marginTop:2}}>{"+"+fmt(buffer.monthly+childFund.monthly+(lucasFund?.monthly||0)+(summerHoliday?.monthly||0)+members.reduce((s,m)=>s+m.savingsGoal.monthly,0))+" kr / month"}</div>
       </div>
-      <div style={{background:C.card,borderRadius:16,border:"1px solid rgba(124,111,255,0.3)",padding:"14px 16px"}}>
+      {summerHoliday&&(
+        <div onClick={onSH} style={{cursor:"pointer",background:C.card,borderRadius:16,border:"1px solid rgba(96,165,250,0.3)",padding:"14px 16px"}} onMouseEnter={e=>e.currentTarget.style.opacity="0.75"} onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
+          <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:10}}>
+            <div style={{width:40,height:40,borderRadius:12,background:"rgba(96,165,250,0.2)",border:"2px solid #60A5FA",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,overflow:"hidden"}}>{summerHoliday.photo?<img src={summerHoliday.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>:summerHoliday.emoji}</div>
+            <div style={{flex:1}}><div style={{fontSize:14,fontWeight:500,color:C.t1}}>{summerHoliday.name}</div><div style={{fontSize:13,color:C.t3}}>Family goal · Anna & Erik</div></div>
+            <div style={{textAlign:"right"}}><div style={{fontSize:15,fontWeight:500,color:"#60A5FA"}}>{fmt(summerHoliday.saved)+" kr"}</div><div style={{fontSize:13,color:C.t3}}>{Math.round((summerHoliday.saved/summerHoliday.target)*100)+"%"}</div></div>
+          </div>
+          <div style={{height:4,borderRadius:999,background:"rgba(96,165,250,0.15)",overflow:"hidden"}}><div style={{width:Math.round((summerHoliday.saved/summerHoliday.target)*100)+"%",height:"100%",borderRadius:999,background:"#60A5FA"}}/></div>
+        </div>
+      )}
+      <div onClick={onBuf} style={{cursor:"pointer",background:C.card,borderRadius:16,border:"1px solid rgba(124,111,255,0.3)",padding:"14px 16px"}} onMouseEnter={e=>e.currentTarget.style.opacity="0.75"} onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
         <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:10}}>
           <div style={{width:40,height:40,borderRadius:"50%",background:"rgba(124,111,255,0.2)",border:"2px solid #7C6FFF",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>🛟</div>
-          <div style={{flex:1}}><div style={{fontSize:14,fontWeight:500,color:C.t1}}>Buffer account</div>        <div style={{fontSize:11,color:C.t3}}>Joint - Anna and Erik</div></div>
-          <div style={{textAlign:"right"}}><div style={{fontSize:15,fontWeight:500,color:"#7C6FFF"}}>{fmt(buffer.balance)+" kr"}</div><div style={{fontSize:11,color:C.t3}}>{"+"+fmt(buffer.monthly)+" kr/mo"}</div></div>
+          <div style={{flex:1}}><div style={{fontSize:14,fontWeight:500,color:C.t1}}>Buffer account</div><div style={{fontSize:13,color:C.t3}}>Joint · Adults</div></div>
+          <div style={{textAlign:"right"}}><div style={{fontSize:15,fontWeight:500,color:"#7C6FFF"}}>{fmt(buffer.balance)+" kr"}</div><div style={{fontSize:13,color:C.t3}}>{"+"+fmt(buffer.monthly)+" kr/mo"}</div></div>
         </div>
         <div style={{height:4,borderRadius:999,background:"rgba(124,111,255,0.15)",overflow:"hidden"}}><div style={{width:"74%",height:"100%",borderRadius:999,background:"#7C6FFF"}}/></div>
       </div>
-      <div style={{background:C.card,borderRadius:16,border:"1px solid rgba(244,114,182,0.3)",padding:"14px 16px"}}>
+      <div onClick={onCF} style={{cursor:"pointer",background:C.card,borderRadius:16,border:"1px solid rgba(244,114,182,0.3)",padding:"14px 16px"}} onMouseEnter={e=>e.currentTarget.style.opacity="0.75"} onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
         <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:10}}>
           <div style={{width:40,height:40,borderRadius:"50%",background:"rgba(244,114,182,0.2)",border:"2px solid #F472B6",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>🌱</div>
-          <div style={{flex:1}}>          <div style={{fontSize:14,fontWeight:500,color:C.t1}}>{"Maja's 0-18 fund"}</div>        <div style={{fontSize:11,color:C.t3}}>Long-term - Adults manage</div></div>
-          <div style={{textAlign:"right"}}><div style={{fontSize:15,fontWeight:500,color:"#F472B6"}}>{fmt(childFund.balance)+" kr"}</div><div style={{fontSize:11,color:C.t3}}>{"+"+fmt(childFund.monthly)+" kr/mo"}</div></div>
+          <div style={{flex:1}}><div style={{fontSize:14,fontWeight:500,color:C.t1}}>{childFund.name}</div><div style={{fontSize:13,color:C.t3}}>Long-term · Adults manage</div></div>
+          <div style={{textAlign:"right"}}><div style={{fontSize:15,fontWeight:500,color:"#F472B6"}}>{fmt(childFund.balance)+" kr"}</div><div style={{fontSize:13,color:C.t3}}>{"+"+fmt(childFund.monthly)+" kr/mo"}</div></div>
         </div>
         <div style={{height:4,borderRadius:999,background:"rgba(244,114,182,0.15)",overflow:"hidden"}}><div style={{width:"51%",height:"100%",borderRadius:999,background:"#F472B6"}}/></div>
       </div>
-      <div style={{fontSize:11,fontWeight:500,color:C.t3,textTransform:"uppercase",letterSpacing:1,marginTop:4}}>Individual goals</div>
-      {goals.map((g,i)=>{
-        const pct=Math.round((g.saved/g.target)*100);
-        return (
-          <div key={i} style={{background:C.card,borderRadius:16,border:"1px solid "+C.border,padding:"14px 16px"}}>
-            <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:10}}>
-              <div style={{width:40,height:40,borderRadius:12,background:g.color+"22",border:"1.5px solid "+g.color+"55",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,overflow:"hidden"}}>{g.photo?<img src={g.photo} alt={g.name} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:g.emoji}</div>
-              <div style={{flex:1}}><div style={{fontSize:14,fontWeight:500,color:C.t1}}>{g.name}</div><div style={{fontSize:11,color:C.t3}}>{g.who}</div></div>
-              <div style={{textAlign:"right"}}><div style={{fontSize:13,fontWeight:500,color:g.color}}>{pct+"%"}</div><div style={{fontSize:11,color:C.t3}}>{fmt(g.saved)+" / "+fmt(g.target)}</div></div>
-            </div>
-            <div style={{height:4,borderRadius:999,background:"rgba(255,255,255,0.07)",overflow:"hidden"}}><div style={{width:pct+"%",height:"100%",borderRadius:999,background:g.color}}/></div>
+      <div onClick={onLucasCF} style={{cursor:"pointer",background:C.card,borderRadius:16,border:"1px solid rgba(251,191,36,0.3)",padding:"14px 16px"}} onMouseEnter={e=>e.currentTarget.style.opacity="0.75"} onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
+        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:10}}>
+          <div style={{width:40,height:40,borderRadius:"50%",background:"rgba(251,191,36,0.2)",border:"2px solid #FBBF24",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>🌱</div>
+          <div style={{flex:1}}><div style={{fontSize:14,fontWeight:500,color:C.t1}}>{lucasFund.name}</div><div style={{fontSize:13,color:C.t3}}>Long-term · Adults manage</div></div>
+          <div style={{textAlign:"right"}}><div style={{fontSize:15,fontWeight:500,color:"#FBBF24"}}>{fmt(lucasFund.balance)+" kr"}</div><div style={{fontSize:13,color:C.t3}}>{"+"+fmt(lucasFund.monthly)+" kr/mo"}</div></div>
+        </div>
+        <div style={{height:4,borderRadius:999,background:"rgba(251,191,36,0.15)",overflow:"hidden"}}><div style={{width:"26%",height:"100%",borderRadius:999,background:"#FBBF24"}}/></div>
+      </div>
+      <div style={{fontSize:13,fontWeight:500,color:C.t3,textTransform:"uppercase",letterSpacing:1,marginTop:4}}>Individual goals</div>
+      {members.map((m,i)=>{const g=m.savingsGoal,pct=Math.round((g.saved/g.target)*100);return(
+        <div key={i} onClick={()=>onGoal(m)} style={{cursor:"pointer",background:C.card,borderRadius:16,border:"1px solid "+C.border,padding:"14px 16px"}} onMouseEnter={e=>e.currentTarget.style.opacity="0.75"} onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
+          <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:10}}>
+            <div style={{width:40,height:40,borderRadius:12,background:g.color+"22",border:"1.5px solid "+g.color+"55",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,overflow:"hidden"}}>{g.photo?<img src={g.photo} alt={g.name} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:g.emoji}</div>
+            <div style={{flex:1}}><div style={{fontSize:14,fontWeight:500,color:C.t1}}>{g.name}</div><div style={{fontSize:13,color:C.t3}}>{m.name}</div></div>
+            <div style={{textAlign:"right"}}><div style={{fontSize:13,fontWeight:500,color:g.color}}>{pct+"%"}</div><div style={{fontSize:13,color:C.t3}}>{fmt(g.saved)+" / "+fmt(g.target)}</div></div>
           </div>
-        );
-      })}
+          <div style={{height:4,borderRadius:999,background:C.border,overflow:"hidden"}}><div style={{width:pct+"%",height:"100%",borderRadius:999,background:g.color}}/></div>
+        </div>
+      );})}
     </div>
   );
 }
@@ -614,11 +796,11 @@ function LoanDetail({ loan, onBack }) {
         <div style={{background:C.card,borderRadius:18,border:"1px solid "+C.border,padding:"18px 20px",marginBottom:16}}>
           <div style={{display:"flex",justifyContent:"space-between",marginBottom:14}}>
             <div>
-              <div style={{fontSize:11,color:C.t3,marginBottom:4}}>Remaining</div>
+              <div style={{fontSize:13,color:C.t3,marginBottom:4}}>Remaining</div>
               <div style={{fontSize:30,fontWeight:500}}>{fmt(remaining)+" "}<span style={{fontSize:14,color:C.t2}}>kr</span></div>
             </div>
             <div style={{textAlign:"right"}}>
-              <div style={{fontSize:11,color:C.t3,marginBottom:4}}>Total</div>
+              <div style={{fontSize:13,color:C.t3,marginBottom:4}}>Total</div>
               <div style={{fontSize:18,fontWeight:500,color:C.t2}}>{fmt(loan.amount)+" kr"}</div>
             </div>
           </div>
@@ -646,17 +828,285 @@ function LoanDetail({ loan, onBack }) {
   );
 }
 
+// ── CREATE SAVINGS FLOW ───────────────────────────────────────────────────────
+function CreateSavingsFlow({ members, onBack }) {
+  const adults=members.filter((m:any)=>m.role==="Parent");
+  const [name,setName]=useState("New goal");
+  const [emoji,setEmoji]=useState("🎯");
+  const [gc,setGc]=useState("#7C6FFF");
+  const [targetStr,setTargetStr]=useState("");
+  const [monthly,setMonthly]=useState(500);
+  const [desc,setDesc]=useState("");
+  const [photo,setPhoto]=useState("");
+  const [showPicker,setShowPicker]=useState(false);
+  const [hasAgreement,setHasAgreement]=useState(false);
+  const [agreementText,setAgreementText]=useState("");
+  const [signerIds,setSignerIds]=useState<number[]>(adults.map((m:any)=>m.id));
+  const [sentTo,setSentTo]=useState<number[]>([]);
+  const [done,setDone]=useState(false);
+  const toggleSigner=(id:number)=>setSignerIds(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
+  const target=parseInt(targetStr)||0;
+  const sliderMax=Math.max(monthly*3,3000);
+  const monthsLeft=monthly>0?Math.ceil(target/monthly):0;
+  const doneDate=(()=>{const d=new Date();d.setMonth(d.getMonth()+monthsLeft);return d.toLocaleDateString("en-SE",{month:"short",year:"numeric"});})();
+  const canCreate=name.trim().length>1&&target>0&&monthly>0;
+  if(done) return(
+    <div style={{background:C.bg,minHeight:"100%",color:C.t1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:32,gap:16}}>
+      <div style={{width:80,height:80,borderRadius:"50%",background:"rgba(52,211,153,0.18)",border:"2px solid #34D399",display:"flex",alignItems:"center",justifyContent:"center",fontSize:36}}>{emoji}</div>
+      <div style={{fontSize:11,fontWeight:700,color:"#34D399",letterSpacing:1,textTransform:"uppercase"}}>Goal created!</div>
+      <div style={{fontSize:22,fontWeight:600}}>{name}</div>
+      <div style={{fontSize:13,color:C.t3}}>Target: {fmt(target)} kr · {fmt(monthly)} kr/mo</div>
+      <button onClick={onBack} style={{marginTop:16,width:"100%",background:gc,border:"none",borderRadius:14,padding:14,fontSize:15,fontWeight:600,color:"#fff",cursor:"pointer"}}>Done</button>
+    </div>
+  );
+  return(
+    <div style={{background:C.bg,color:C.t1}}>
+      {/* Hero */}
+      <div style={{position:"relative",overflow:"hidden"}}>
+        {photo
+          ?<div style={{height:180,position:"relative"}}><img src={photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/><div style={{position:"absolute",inset:0,background:"linear-gradient(to bottom,rgba(13,15,26,0.3) 0%,rgba(13,15,26,0.95) 100%)"}}/></div>
+          :<div style={{height:180,background:"linear-gradient(160deg,"+gc+"55 0%,"+C.bg+" 70%)",display:"flex",alignItems:"flex-start",justifyContent:"center",paddingTop:20}}>
+            <label style={{cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:6,opacity:0.5}}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={C.t3} strokeWidth="1.5" strokeLinecap="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+              <span style={{fontSize:11,color:C.t3}}>Add photo</span>
+              <input type="file" accept="image/*" style={{display:"none"}} onChange={e=>{const f=e.target.files?.[0];if(!f)return;const r=new FileReader();r.onload=ev=>setPhoto(ev.target?.result as string);r.readAsDataURL(f);}}/>
+            </label>
+          </div>
+        }
+        <button onClick={()=>setShowPicker(v=>!v)} style={{position:"absolute",top:12,right:16,background:"rgba(0,0,0,0.4)",backdropFilter:"blur(8px)",border:"1px solid rgba(255,255,255,0.15)",borderRadius:"50%",width:34,height:34,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,cursor:"pointer",color:"#fff",zIndex:2}}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </button>
+        <div style={{position:"absolute",bottom:0,left:0,right:0,padding:"0 20px 20px",zIndex:2}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:6}}>
+            <span style={{fontSize:28}}>{emoji}</span>
+            <input value={name} onChange={e=>setName(e.target.value)} style={{background:"transparent",border:"none",borderBottom:"2px solid "+gc,color:C.t1,fontSize:22,fontWeight:600,outline:"none",width:200}}/>
+          </div>
+          <div style={{fontSize:12,color:C.t2}}>New savings goal</div>
+        </div>
+      </div>
+      {/* Emoji + color picker */}
+      {showPicker&&<div style={{padding:"14px 20px 0"}}>
+        <div style={{display:"flex",justifyContent:"center",gap:8,flexWrap:"wrap",marginBottom:10}}>{GOAL_EMOJIS.map(e=><button key={e} onClick={()=>setEmoji(e)} style={{fontSize:20,background:emoji===e?gc+"33":"rgba(255,255,255,0.05)",border:"1px solid "+(emoji===e?gc:"transparent"),borderRadius:10,width:40,height:40,cursor:"pointer"}}>{e}</button>)}</div>
+        <div style={{display:"flex",justifyContent:"center",gap:10}}>{GOAL_COLORS.map(col=><button key={col} onClick={()=>setGc(col)} style={{width:26,height:26,borderRadius:"50%",background:col,border:gc===col?"3px solid white":"3px solid transparent",cursor:"pointer"}}/>)}</div>
+      </div>}
+      {/* Content */}
+      <div style={{padding:"0 20px 40px"}}>
+        {/* Target card */}
+        <div style={{background:C.card,borderRadius:18,border:"1px solid "+C.border,padding:"18px 20px",marginBottom:16,marginTop:16}}>
+          <div style={{fontSize:13,color:C.t3,marginBottom:8}}>Target amount</div>
+          <div style={{display:"flex",alignItems:"baseline",gap:8}}>
+            <input type="number" value={targetStr} onChange={e=>setTargetStr(e.target.value)} style={{background:"transparent",border:"none",borderBottom:"2px solid "+gc+"99",color:C.t1,fontSize:32,fontWeight:500,outline:"none",width:"100%",minWidth:0}} placeholder=""/>
+            <span style={{fontSize:16,color:C.t2,flexShrink:0}}>SEK</span>
+          </div>
+        </div>
+        {/* Description */}
+        <div style={{background:C.card,borderRadius:16,border:"1px solid "+C.border,padding:16,marginBottom:16}}>
+          <div style={{fontSize:14,fontWeight:500,marginBottom:8}}>About this goal</div>
+          <textarea value={desc} onChange={e=>setDesc(e.target.value)} placeholder="What are you saving for?" rows={3} style={{width:"100%",background:"rgba(255,255,255,0.04)",border:"1px solid "+gc+"44",borderRadius:10,padding:"10px 12px",fontSize:13,color:C.t1,resize:"none",outline:"none",lineHeight:1.6,boxSizing:"border-box"}}/>
+        </div>
+        {/* Agreement */}
+        <div style={{background:C.card,borderRadius:16,border:"1px solid "+(hasAgreement?"rgba(124,111,255,0.35)":C.border),marginBottom:16,overflow:"hidden"}}>
+          <button onClick={()=>setHasAgreement(v=>!v)} style={{width:"100%",background:"none",border:"none",display:"flex",alignItems:"center",gap:12,padding:"14px 16px",cursor:"pointer",textAlign:"left"}}>
+            <span style={{fontSize:20}}>🤝</span>
+            <div style={{flex:1}}><div style={{fontSize:13,fontWeight:500,color:C.t1}}>Family agreement</div><div style={{fontSize:12,color:C.t3,marginTop:1}}>Optional · Add shared rules for this goal</div></div>
+            <span style={{fontSize:11,color:"rgba(124,111,255,0.8)",transform:hasAgreement?"rotate(180deg)":"rotate(0deg)",transition:"transform 0.2s"}}>▼</span>
+          </button>
+          {hasAgreement&&<div style={{padding:"0 16px 16px"}}>
+            <textarea value={agreementText} onChange={e=>setAgreementText(e.target.value)} placeholder="e.g. We commit to saving every month and only withdraw for the intended purpose." rows={3} style={{width:"100%",background:"rgba(255,255,255,0.04)",border:"1px solid rgba(124,111,255,0.3)",borderRadius:10,padding:"10px 12px",fontSize:13,color:C.t1,resize:"none",outline:"none",lineHeight:1.6,boxSizing:"border-box",marginBottom:10}}/>
+            <div style={{fontSize:11,color:C.t3,marginBottom:10,textTransform:"uppercase",letterSpacing:1}}>Signers</div>
+            <div style={{display:"flex",flexDirection:"column",gap:8}}>
+              {adults.map((m:any)=>{
+                const signing=signerIds.includes(m.id);
+                const sent=sentTo.includes(m.id);
+                return(
+                  <div key={m.id} style={{display:"flex",alignItems:"center",gap:10,background:signing?"rgba(124,111,255,0.08)":C.card,border:"1.5px solid "+(signing?"rgba(124,111,255,0.35)":C.border),borderRadius:12,padding:"10px 14px"}}>
+                    <div onClick={()=>toggleSigner(m.id)} style={{display:"flex",alignItems:"center",gap:10,flex:1,cursor:"pointer"}}>
+                      <Avatar m={m} size={32}/>
+                      <div>
+                        <div style={{fontSize:13,fontWeight:500,color:C.t1}}>{m.name}</div>
+                        <div style={{fontSize:11,color:signing?C.green:C.t3}}>{signing?"✓ Will sign":"Tap to include"}</div>
+                      </div>
+                    </div>
+                    {signing&&(
+                      <button onClick={()=>setSentTo(p=>sent?p.filter(x=>x!==m.id):[...p,m.id])} style={{background:sent?"rgba(52,211,153,0.15)":"rgba(124,111,255,0.15)",border:"1px solid "+(sent?"rgba(52,211,153,0.4)":"rgba(124,111,255,0.35)"),borderRadius:8,padding:"6px 12px",fontSize:12,fontWeight:600,color:sent?C.green:"#7C6FFF",cursor:"pointer",flexShrink:0,whiteSpace:"nowrap" as const}}>
+                        {sent?"✓ Invite sent":"Send invite →"}
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>}
+        </div>
+        {/* Monthly savings slider */}
+        <div style={{background:C.card,borderRadius:16,border:"1px solid "+C.border,padding:"16px 18px",marginBottom:16}}>
+          <div style={{fontSize:13,fontWeight:500,color:C.t1,marginBottom:14}}>Monthly savings</div>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",marginBottom:10}}>
+            <div style={{fontSize:28,fontWeight:500,color:gc,lineHeight:1}}>{fmt(monthly)}<span style={{fontSize:13,color:C.t2}}> kr/mo</span></div>
+            <div style={{textAlign:"right"}}><div style={{fontSize:13,color:C.t3}}>Done by {doneDate}</div></div>
+          </div>
+          <input type="range" min={100} max={sliderMax} step={50} value={monthly} onChange={e=>setMonthly(Number(e.target.value))} style={{width:"100%",accentColor:gc,cursor:"pointer"}}/>
+          <div style={{display:"flex",justifyContent:"space-between",marginTop:6,fontSize:12,color:C.t3}}><span>100 kr</span><span>{fmt(sliderMax)} kr</span></div>
+        </div>
+        {/* Info rows */}
+        <div style={{background:C.card,borderRadius:16,border:"1px solid "+C.border,marginBottom:16}}>
+          <div style={{display:"flex",alignItems:"center",gap:14,padding:"14px 16px",borderBottom:"1px solid "+C.border}}><span style={{fontSize:20,width:32,textAlign:"center"}}>📈</span><span style={{flex:1,fontSize:13,fontWeight:500,color:C.t1}}>Monthly growth</span><span style={{fontSize:13,fontWeight:500,color:C.green}}>{"+"+fmt(monthly)+" SEK"}</span></div>
+          <div style={{display:"flex",alignItems:"center",gap:14,padding:"14px 16px"}}><span style={{fontSize:20,width:32,textAlign:"center"}}>📅</span><div style={{flex:1}}><span style={{display:"block",fontSize:13,fontWeight:500,color:C.t1}}>Est. completion</span><span style={{display:"block",fontSize:13,color:C.t3}}>{doneDate}</span></div></div>
+        </div>
+        <button disabled={!canCreate} onClick={()=>setDone(true)} style={{width:"100%",background:canCreate?gc:"rgba(124,111,255,0.3)",border:"none",borderRadius:14,padding:14,fontSize:15,fontWeight:600,color:"#fff",cursor:canCreate?"pointer":"default"}}>Create goal</button>
+      </div>
+    </div>
+  );
+}
+
+// ── CREATE LOAN FLOW ──────────────────────────────────────────────────────────
+const LOAN_PURPOSES=[{emoji:"🏠",label:"Home renovation",color:"#FBBF24"},{emoji:"🚗",label:"Car",color:"#60A5FA"},{emoji:"📱",label:"Electronics",color:"#34D399"},{emoji:"🎓",label:"Education",color:"#A78BFA"},{emoji:"🌴",label:"Holiday",color:"#FB923C"},{emoji:"💼",label:"Other",color:"#94A3B8"}];
+function CreateLoanFlow({ members, onBack }) {
+  const adults=members.filter((m:any)=>m.role==="Parent");
+  const [purpose,setPurpose]=useState(LOAN_PURPOSES[0]);
+  const [amountStr,setAmountStr]=useState("30000");
+  const [monthly,setMonthly]=useState(1000);
+  const [desc,setDesc]=useState("");
+  const [hasAgreement,setHasAgreement]=useState(false);
+  const [agreementText,setAgreementText]=useState("");
+  const [signerIds,setSignerIds]=useState<number[]>(adults.map((m:any)=>m.id));
+  const [done,setDone]=useState(false);
+  const toggleSigner=(id:number)=>setSignerIds(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
+  const amount=parseInt(amountStr)||0;
+  const lc=purpose.color;
+  const monthsLeft=monthly>0?Math.ceil(amount/monthly):0;
+  const endDate=(()=>{const d=new Date();d.setMonth(d.getMonth()+monthsLeft);return d.toLocaleDateString("en-SE",{month:"short",year:"numeric"});})();
+  const canCreate=amount>0&&monthly>0;
+  if(done) return(
+    <div style={{background:C.bg,minHeight:"100%",color:C.t1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:32,gap:16}}>
+      <div style={{width:80,height:80,borderRadius:"50%",background:lc+"22",border:"2px solid "+lc,display:"flex",alignItems:"center",justifyContent:"center",fontSize:36}}>{purpose.emoji}</div>
+      <div style={{fontSize:11,fontWeight:700,color:"#34D399",letterSpacing:1,textTransform:"uppercase"}}>Application sent!</div>
+      <div style={{fontSize:22,fontWeight:600}}>{purpose.label}</div>
+      <div style={{fontSize:13,color:C.t3}}>{fmt(amount)} kr · {fmt(monthly)} kr/mo</div>
+      <button onClick={onBack} style={{marginTop:16,width:"100%",background:lc,border:"none",borderRadius:14,padding:14,fontSize:15,fontWeight:600,color:"#fff",cursor:"pointer"}}>Done</button>
+    </div>
+  );
+  return(
+    <div style={{background:C.bg,color:C.t1}}>
+      {/* Hero */}
+      <div style={{position:"relative",height:180,background:"linear-gradient(160deg,"+lc+"44 0%,"+C.bg+" 80%)",overflow:"hidden"}}>
+        <div style={{position:"absolute",bottom:20,left:20,right:20,zIndex:2}}>
+          <div style={{display:"flex",alignItems:"center",gap:14}}>
+            <div style={{width:52,height:52,borderRadius:14,background:lc+"22",border:"2px solid "+lc+"55",display:"flex",alignItems:"center",justifyContent:"center",fontSize:26}}>{purpose.emoji}</div>
+            <div>
+              <div style={{fontSize:20,fontWeight:600,color:C.t1}}>{purpose.label}</div>
+              <div style={{fontSize:12,color:C.t2,marginTop:2}}>New loan application</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      {/* Purpose picker */}
+      <div style={{padding:"14px 20px 0"}}>
+        <div style={{fontSize:11,color:C.t3,marginBottom:10,textTransform:"uppercase",letterSpacing:1}}>Purpose</div>
+        <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:4}}>
+          {LOAN_PURPOSES.map(p=><button key={p.label} onClick={()=>setPurpose(p)} style={{flex:"1 1 calc(33% - 6px)",minWidth:88,background:purpose.label===p.label?p.color+"18":C.card,border:"1.5px solid "+(purpose.label===p.label?p.color:C.border),borderRadius:12,padding:"9px 6px",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3}}>
+            <span style={{fontSize:18}}>{p.emoji}</span>
+            <span style={{fontSize:11,color:purpose.label===p.label?p.color:C.t2,fontWeight:purpose.label===p.label?600:400}}>{p.label}</span>
+          </button>)}
+        </div>
+      </div>
+      <div style={{padding:"14px 20px 40px"}}>
+        {/* Stats card */}
+        <div style={{background:C.card,borderRadius:18,border:"1px solid "+C.border,padding:"18px 20px",marginBottom:16}}>
+          <div style={{display:"flex",justifyContent:"space-between",marginBottom:14}}>
+            <div><div style={{fontSize:13,color:C.t3,marginBottom:4}}>Remaining</div><div style={{fontSize:30,fontWeight:500}}><input type="number" value={amountStr} onChange={e=>setAmountStr(e.target.value)} style={{background:"transparent",border:"none",borderBottom:"1.5px solid "+lc+"88",color:C.t1,fontSize:30,fontWeight:500,outline:"none",width:140}}/> <span style={{fontSize:14,color:C.t2}}>kr</span></div></div>
+            <div style={{textAlign:"right"}}><div style={{fontSize:13,color:C.t3,marginBottom:4}}>Total</div><div style={{fontSize:18,fontWeight:500,color:C.t2}}>{fmt(amount)+" kr"}</div></div>
+          </div>
+          <Bar value={0} max={Math.max(amount,1)} color={lc} height={6}/>
+          <div style={{display:"flex",justifyContent:"space-between",marginTop:8,fontSize:12,color:C.t3}}><span>0%</span><span style={{color:lc,fontWeight:500}}>0% paid off</span></div>
+        </div>
+        {/* Description */}
+        <div style={{background:C.card,borderRadius:16,border:"1px solid "+C.border,padding:16,marginBottom:16}}>
+          <div style={{fontSize:14,fontWeight:500,marginBottom:8}}>Purpose / notes</div>
+          <textarea value={desc} onChange={e=>setDesc(e.target.value)} placeholder="What is this loan for?" rows={2} style={{width:"100%",background:"rgba(255,255,255,0.04)",border:"1px solid "+lc+"44",borderRadius:10,padding:"10px 12px",fontSize:13,color:C.t1,resize:"none",outline:"none",lineHeight:1.6,boxSizing:"border-box"}}/>
+        </div>
+        {/* Agreement */}
+        <div style={{background:C.card,borderRadius:16,border:"1px solid "+(hasAgreement?"rgba(124,111,255,0.35)":C.border),marginBottom:16,overflow:"hidden"}}>
+          <button onClick={()=>setHasAgreement(v=>!v)} style={{width:"100%",background:"none",border:"none",display:"flex",alignItems:"center",gap:12,padding:"14px 16px",cursor:"pointer",textAlign:"left"}}>
+            <span style={{fontSize:20}}>🤝</span>
+            <div style={{flex:1}}><div style={{fontSize:13,fontWeight:500,color:C.t1}}>Repayment agreement</div><div style={{fontSize:12,color:C.t3,marginTop:1}}>Optional · Commit to a shared repayment plan</div></div>
+            <span style={{fontSize:11,color:"rgba(124,111,255,0.8)",transform:hasAgreement?"rotate(180deg)":"rotate(0deg)",transition:"transform 0.2s"}}>▼</span>
+          </button>
+          {hasAgreement&&<div style={{padding:"0 16px 16px"}}>
+            <textarea value={agreementText} onChange={e=>setAgreementText(e.target.value)} placeholder="e.g. We agree to pay every month and not take on additional loans until this is fully repaid." rows={3} style={{width:"100%",background:"rgba(255,255,255,0.04)",border:"1px solid rgba(124,111,255,0.3)",borderRadius:10,padding:"10px 12px",fontSize:13,color:C.t1,resize:"none",outline:"none",lineHeight:1.6,boxSizing:"border-box",marginBottom:10}}/>
+            <div style={{fontSize:11,color:C.t3,marginBottom:8,textTransform:"uppercase",letterSpacing:1}}>Who signs</div>
+            <div style={{display:"flex",gap:8}}>{adults.map((m:any)=>(
+              <div key={m.id} onClick={()=>toggleSigner(m.id)} style={{flex:1,background:signerIds.includes(m.id)?"rgba(124,111,255,0.12)":C.card,border:"1.5px solid "+(signerIds.includes(m.id)?"#7C6FFF":C.border),borderRadius:12,padding:"10px 8px",cursor:"pointer",textAlign:"center"}}>
+                <Avatar m={m} size={28}/>
+                <div style={{fontSize:12,color:signerIds.includes(m.id)?"#7C6FFF":C.t2,marginTop:5,fontWeight:500}}>{m.name}</div>
+                {signerIds.includes(m.id)&&<div style={{fontSize:10,color:C.green,marginTop:2}}>✓ Signing</div>}
+              </div>
+            ))}</div>
+          </div>}
+        </div>
+        {/* Monthly slider */}
+        <div style={{background:C.card,borderRadius:16,border:"1px solid "+C.border,padding:"16px 18px",marginBottom:16}}>
+          <div style={{fontSize:13,fontWeight:500,color:C.t1,marginBottom:14}}>Monthly payment</div>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",marginBottom:10}}>
+            <div style={{fontSize:28,fontWeight:500,color:lc,lineHeight:1}}>{fmt(monthly)}<span style={{fontSize:13,color:C.t2}}> kr/mo</span></div>
+            <div style={{textAlign:"right"}}><div style={{fontSize:13,color:C.t3}}>Paid off by {endDate}</div></div>
+          </div>
+          <input type="range" min={100} max={Math.max(monthly*3,5000)} step={100} value={monthly} onChange={e=>setMonthly(Number(e.target.value))} style={{width:"100%",accentColor:lc,cursor:"pointer"}}/>
+          <div style={{display:"flex",justifyContent:"space-between",marginTop:6,fontSize:12,color:C.t3}}><span>100 kr</span><span>{fmt(Math.max(monthly*3,5000))} kr</span></div>
+        </div>
+        {/* Info rows */}
+        <div style={{background:C.card,borderRadius:16,border:"1px solid "+C.border,marginBottom:16}}>
+          {[{icon:"📅",label:"Monthly payment",val:fmt(monthly)+" kr/mo"},{icon:"📈",label:"Interest rate",val:"Pending approval"},{icon:"🏁",label:"Est. end date",val:endDate}].map((r,i,arr)=>(
+            <div key={i} style={{display:"flex",alignItems:"center",gap:14,padding:"13px 16px",borderBottom:i<arr.length-1?"1px solid "+C.border:"none"}}>
+              <span style={{fontSize:20,width:28,textAlign:"center",flexShrink:0}}>{r.icon}</span>
+              <span style={{flex:1,fontSize:13,color:C.t2}}>{r.label}</span>
+              <span style={{fontSize:13,fontWeight:500,color:C.t1}}>{r.val}</span>
+            </div>
+          ))}
+        </div>
+        <button disabled={!canCreate} onClick={()=>setDone(true)} style={{width:"100%",background:canCreate?lc:"rgba(251,191,36,0.3)",border:"none",borderRadius:14,padding:14,fontSize:15,fontWeight:600,color:canCreate?"#fff":"rgba(255,255,255,0.4)",cursor:canCreate?"pointer":"default"}}>Submit application</button>
+      </div>
+    </div>
+  );
+}
+
 // ── SERVICES ──────────────────────────────────────────────────────────────────
-function ServicesPage({ onFamilyClick }) {
+function ServicesPage({ onFamilyClick, members, buffer, setBuffer, childFund, setChildFund, lucasFund, setLucasFund, summerHoliday, onSubPage, mainScrollRef }) {
   const [sel, setSel] = useState("Cards");
   const [sheet, setSheet] = useState(false);
   const [selectedLoan, setSelectedLoan] = useState(null);
+  const [savView, setSavView] = useState<null|"buf"|"cf"|"lcf"|"sh"|{member:any}>(null);
+  const [showCreateSavings, setShowCreateSavings] = useState(false);
+  const [showCreateLoan, setShowCreateLoan] = useState(false);
+  const [showAutoSave, setShowAutoSave] = useState(false);
+  const pageRef = useRef<HTMLDivElement>(null);
+  const clearSav = () => setSavView(null);
+  const _svcKey = selectedLoan?.name||(typeof savView==="string"?savView:savView?"goal_"+(savView as any).member?.id:"");
+  useEffect(()=>{ if(_svcKey) requestAnimationFrame(()=>{ if(mainScrollRef?.current) mainScrollRef.current.scrollTop=0; }); },[_svcKey]);
+  const clearLoan = () => setSelectedLoan(null);
+  useEffect(()=>{
+    if(selectedLoan) onSubPage?.({title:selectedLoan.name, back:clearLoan});
+    else if(savView==="buf") onSubPage?.({title:"Buffer account", back:clearSav});
+    else if(savView==="cf") onSubPage?.({title:childFund.name, back:clearSav});
+    else if(savView==="lcf") onSubPage?.({title:lucasFund.name, back:clearSav});
+    else if(savView==="sh") onSubPage?.({title:"Summer holiday", back:clearSav});
+    else if(savView&&typeof savView==="object") onSubPage?.({title:savView.member.savingsGoal.name, back:clearSav});
+    else onSubPage?.(null);
+  },[savView,selectedLoan]);
   const cats = [
     {id:"Cards",color:"#7C6FFF",icon:<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>},
     {id:"Savings",color:"#34D399",icon:<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M19 8c0-2.8-2.2-5-5-5H9C6.2 3 4 5.2 4 8c0 2.1 1.3 4 3.2 4.8V17a1 1 0 0 0 1 1h7.6a1 1 0 0 0 1-1v-4.2C18.7 12 19 10.1 19 8z"/><path d="M9 17v1a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2v-1"/><line x1="12" y1="7" x2="12" y2="11"/><line x1="10" y1="9" x2="14" y2="9"/></svg>},
     {id:"Loans",color:"#FBBF24",icon:<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>},
   ];
+  if (showCreateSavings) return <div ref={pageRef} style={{flex:1,overflowY:"auto",background:C.bg,scrollbarWidth:"none"}}><CreateSavingsFlow members={members} onBack={()=>setShowCreateSavings(false)}/></div>;
+  if (showCreateLoan) return <div ref={pageRef} style={{flex:1,overflowY:"auto",background:C.bg,scrollbarWidth:"none"}}><CreateLoanFlow members={members} onBack={()=>setShowCreateLoan(false)}/></div>;
+  if (showAutoSave) return <div ref={pageRef} style={{flex:1,overflowY:"auto",background:C.bg,scrollbarWidth:"none"}}><AutoSaveSettings members={members} buffer={buffer} childFund={childFund} lucasFund={lucasFund} summerHoliday={summerHoliday} onBack={()=>setShowAutoSave(false)}/></div>;
   if (selectedLoan) return <LoanDetail loan={selectedLoan} onBack={()=>setSelectedLoan(null)}/>;
+  if (savView==="buf") return <div ref={pageRef} style={{flex:1,overflowY:"auto",background:C.bg,scrollbarWidth:"none"}}><BufferAccount members={members} buffer={buffer} onDeposit={a=>setBuffer(b=>({...b,balance:b.balance+a}))} onWithdraw={a=>setBuffer(b=>({...b,balance:Math.max(0,b.balance-a)}))} onBack={()=>setSavView(null)} onAutoSaveSettings={()=>setShowAutoSave(true)}/></div>;
+  if (savView==="cf") return <div ref={pageRef} style={{flex:1,overflowY:"auto",background:C.bg,scrollbarWidth:"none"}}><ChildFund members={members} fund={childFund} onDeposit={a=>setChildFund(f=>({...f,balance:f.balance+a}))} onBack={()=>setSavView(null)} onAutoSaveSettings={()=>setShowAutoSave(true)}/></div>;
+  if (savView==="lcf") return <div ref={pageRef} style={{flex:1,overflowY:"auto",background:C.bg,scrollbarWidth:"none"}}><ChildFund members={members} fund={lucasFund} onDeposit={a=>setLucasFund(f=>({...f,balance:f.balance+a}))} onBack={()=>setSavView(null)} onAutoSaveSettings={()=>setShowAutoSave(true)}/></div>;
+  if (savView==="sh"&&summerHoliday) { const shM={id:0,name:"Family",fullName:"Anna & Erik",age:0,role:"Parent",color:summerHoliday.color,colorSoft:summerHoliday.color+"22",savingsGoal:{...summerHoliday}}; return <div ref={pageRef} style={{flex:1,overflowY:"auto",background:C.bg,scrollbarWidth:"none"}}><SavingsGoalDetail member={shM} onBack={()=>setSavView(null)} onUpdate={()=>{}} onAutoSaveSettings={()=>{}}/></div>; }
+  if (savView&&typeof savView==="object"&&"member" in savView) return <div ref={pageRef} style={{flex:1,overflowY:"auto",background:C.bg,scrollbarWidth:"none"}}><SavingsGoalDetail member={savView.member} onBack={()=>setSavView(null)} onUpdate={(id,g)=>{}} onAutoSaveSettings={()=>{}}/></div>;
   return (
     <div style={{flex:1,overflowY:"auto",padding:20,position:"relative"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:24}}>
@@ -681,11 +1131,11 @@ function ServicesPage({ onFamilyClick }) {
           <div style={{fontSize:15,fontWeight:500,color:C.t1}}>{card.amount}</div>
         </div>
       ))}
-      {sel==="Savings"&&<SavingsInServices/>}
+      {sel==="Savings"&&<SavingsInServices members={members} buffer={buffer} childFund={childFund} lucasFund={lucasFund} summerHoliday={summerHoliday} onBuf={()=>setSavView("buf")} onCF={()=>setSavView("cf")} onLucasCF={()=>setSavView("lcf")} onSH={()=>setSavView("sh")} onGoal={m=>setSavView({member:m})}/>}
       {sel==="Loans"&&(
         <div style={{display:"flex",flexDirection:"column",gap:12}}>
           <div style={{background:"linear-gradient(135deg,rgba(251,191,36,0.12),rgba(251,191,36,0.05))",borderRadius:16,border:"1px solid rgba(251,191,36,0.25)",padding:"16px 18px"}}>
-            <div style={{fontSize:11,color:C.t3,marginBottom:4}}>Total outstanding</div>
+            <div style={{fontSize:13,color:C.t3,marginBottom:4}}>Total outstanding</div>
             <div style={{fontSize:28,fontWeight:500,color:C.t1}}>{"42 500 "}<span style={{fontSize:14,color:C.t2}}>kr</span></div>
             <div style={{fontSize:12,color:C.t2,marginTop:2}}>2 active loans</div>
           </div>
@@ -700,22 +1150,22 @@ function ServicesPage({ onFamilyClick }) {
                   <div style={{width:44,height:44,borderRadius:12,background:loan.color+"22",border:"1.5px solid "+loan.color+"55",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>{loan.icon}</div>
                   <div style={{flex:1}}>
                     <div style={{fontSize:14,fontWeight:500,color:C.t1}}>{loan.name}</div>
-                    <div style={{fontSize:11,color:C.t3,marginTop:2}}>{"Ends "+loan.ends+" · "+loan.rate+" interest"}</div>
+                    <div style={{fontSize:13,color:C.t3,marginTop:2}}>{"Ends "+loan.ends+" · "+loan.rate+" interest"}</div>
                   </div>
                   <div style={{textAlign:"right",flexShrink:0}}>
                     <div style={{fontSize:14,fontWeight:500,color:loan.color}}>{fmt(loan.amount-loan.paid)+" kr"}</div>
-                    <div style={{fontSize:11,color:C.t3}}>remaining</div>
+                    <div style={{fontSize:13,color:C.t3}}>remaining</div>
                   </div>
                 </div>
                 <Bar value={loan.paid} max={loan.amount} color={loan.color} height={5}/>
-                <div style={{display:"flex",justifyContent:"space-between",marginTop:6,fontSize:11,color:C.t3}}>
+                <div style={{display:"flex",justifyContent:"space-between",marginTop:6,fontSize:13,color:C.t3}}>
                   <span>{pct+"% paid off"}</span>
                   <span>{fmt(loan.monthly)+" kr/mo"}</span>
                 </div>
               </div>
             );
           })}
-          <div onMouseEnter={e=>e.currentTarget.style.background=C.cardHover} onMouseLeave={e=>e.currentTarget.style.background=C.card} style={{background:C.card,borderRadius:16,border:"1px dashed rgba(251,191,36,0.4)",padding:"16px 18px",display:"flex",alignItems:"center",gap:14,cursor:"pointer"}}>
+          <div onClick={()=>setShowCreateLoan(true)} onMouseEnter={e=>e.currentTarget.style.background=C.cardHover} onMouseLeave={e=>e.currentTarget.style.background=C.card} style={{background:C.card,borderRadius:16,border:"1px dashed rgba(251,191,36,0.4)",padding:"16px 18px",display:"flex",alignItems:"center",gap:14,cursor:"pointer"}}>
             <div style={{width:44,height:44,borderRadius:12,background:"rgba(251,191,36,0.15)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,color:C.amber,flexShrink:0}}>+</div>
             <div><div style={{fontSize:14,fontWeight:500,color:C.t1}}>Apply for a new loan</div><div style={{fontSize:12,color:C.t3,marginTop:2}}>Quick approval · Flexible terms</div></div>
           </div>
@@ -723,11 +1173,11 @@ function ServicesPage({ onFamilyClick }) {
       )}
       {sheet&&(
         <div onClick={()=>setSheet(false)} style={{position:"absolute",inset:0,background:"rgba(0,0,0,0.55)",zIndex:10,display:"flex",flexDirection:"column",justifyContent:"flex-end"}}>
-          <div onClick={e=>e.stopPropagation()} style={{background:"#13162A",borderRadius:"20px 20px 0 0",padding:"16px 20px 32px"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:C.surface,borderRadius:"20px 20px 0 0",padding:"16px 20px 32px"}}>
             <div style={{width:40,height:4,borderRadius:999,background:"rgba(255,255,255,0.2)",margin:"0 auto 20px"}}/>
             <div style={{fontSize:18,fontWeight:500,color:C.t1,marginBottom:20}}>Apply for new service</div>
-            {[{color:"#7C6FFF",label:"Apply for a new card",sub:"Get a card that suits your lifestyle"},{color:"#34D399",label:"Start saving",sub:"Open a savings account today"},{color:"#FBBF24",label:"Apply for loan",sub:"Get money for your projects"}].map((item,i)=>(
-              <div key={i} onClick={()=>setSheet(false)} style={{display:"flex",alignItems:"center",gap:14,background:C.card,borderRadius:14,padding:"14px 16px",marginBottom:12,cursor:"pointer"}} onMouseEnter={e=>e.currentTarget.style.background=C.cardHover} onMouseLeave={e=>e.currentTarget.style.background=C.card}>
+            {[{color:"#7C6FFF",label:"Apply for a new card",sub:"Get a card that suits your lifestyle",action:()=>setSheet(false)},{color:"#34D399",label:"Start saving",sub:"Open a savings account today",action:()=>{setSheet(false);setShowCreateSavings(true);}},{color:"#FBBF24",label:"Apply for loan",sub:"Get money for your projects",action:()=>{setSheet(false);setShowCreateLoan(true);}}].map((item,i)=>(
+              <div key={i} onClick={item.action} style={{display:"flex",alignItems:"center",gap:14,background:C.card,borderRadius:14,padding:"14px 16px",marginBottom:12,cursor:"pointer"}} onMouseEnter={e=>e.currentTarget.style.background=C.cardHover} onMouseLeave={e=>e.currentTarget.style.background=C.card}>
                 <div style={{width:44,height:44,borderRadius:12,background:item.color+"22",display:"flex",alignItems:"center",justifyContent:"center",color:item.color,flexShrink:0,fontSize:20}}>+</div>
                 <div style={{flex:1}}><div style={{fontSize:14,fontWeight:500,color:C.t1}}>{item.label}</div><div style={{fontSize:12,color:C.t3,marginTop:2}}>{item.sub}</div></div>
               </div>
@@ -758,7 +1208,7 @@ function PaymentsPage() {
 }
 
 // ── MERCHANTS ─────────────────────────────────────────────────────────────────
-function MerchantsPage() {
+function MerchantsPage({ mainScrollRef=null }) {
   const [showAdd, setShowAdd] = useState(false);
   const [showAllRec, setShowAllRec] = useState(false);
   const [activeStory, setActiveStory] = useState(null);
@@ -773,6 +1223,7 @@ function MerchantsPage() {
   const timerRef = useRef(null);
   const offersRef = useRef(null);
   const [activeOfferIdx, setActiveOfferIdx] = useState(0);
+  const saveScroll = useScrollRestore(mainScrollRef, showAdd || showInsight || !!activeStory || !!activeOffer);
   const onOffersScroll = useCallback(() => {
     const el = offersRef.current; if (!el) return;
     const idx = Math.round(el.scrollLeft / 190);
@@ -831,14 +1282,14 @@ function MerchantsPage() {
   const goPrev=()=>{cancelAnimationFrame(timerRef.current);if(storySlide>0){setStorySlide(v=>v-1);}else if(activeStory>0){setActiveStory(v=>v-1);setStorySlide(0);}};
 
   const insightSlides = [
-    { bg:"linear-gradient(160deg,#7C6FFF 0%,#1a1040 100%)", title:"March spending overview", sub:"Your family spent 7 540 kr this month", items:[
+    { bg:"linear-gradient(160deg,"+C.accent+" 0%,"+C.bg+" 100%)", title:"March spending overview", sub:"Your family spent 7 540 kr this month", items:[
       {label:"Anna K.",value:"4 820 kr",pct:64,color:"#7C6FFF"},{label:"Erik K.",value:"2 310 kr",pct:31,color:"#34D399"},{label:"Maja K.",value:"410 kr",pct:5,color:"#F472B6"}
     ]},
-    { bg:"linear-gradient(160deg,#34D399 0%,#0a2a1a 100%)", title:"You're saving well!", sub:"Total savings progress across all goals", items:[
+    { bg:"linear-gradient(160deg,#34D399 0%,"+C.bg+" 100%)", title:"You're saving well!", sub:"Total savings progress across all goals", items:[
       {label:"Summer holiday",value:"12 400 / 20 000 kr",pct:62,color:"#7C6FFF"},{label:"New laptop",value:"4 800 / 12 000 kr",pct:40,color:"#34D399"},{label:"New bike",value:"1 200 / 2 500 kr",pct:48,color:"#F472B6"}
     ]},
-    { bg:"linear-gradient(160deg,#FBBF24 0%,#2a1a00 100%)", title:"Smart tip", sub:"Erik is at 77% of his spending limit", tip:"Consider adjusting Erik's limit or reviewing subscriptions to stay on track this month." },
-    { bg:"linear-gradient(160deg,#F472B6 0%,#2a0a1a 100%)", title:"Top spending category", sub:"Groceries: 2 340 kr this month", tip:"You spent 11% more on groceries than last month. Check out ICA's 10% cashback deal to save ~320 kr/mo." },
+    { bg:"linear-gradient(160deg,#FBBF24 0%,"+C.bg+" 100%)", title:"Smart tip", sub:"Erik is at 93% of his spending limit", tip:"Consider adjusting Erik's limit or reviewing subscriptions to stay on track this month." },
+    { bg:"linear-gradient(160deg,#F472B6 0%,"+C.bg+" 100%)", title:"Top spending category", sub:"Groceries: 2 340 kr this month", tip:"You spent 11% more on groceries than last month. Check out ICA's 10% cashback deal to save ~320 kr/mo." },
   ];
   const INSIGHT_DUR = 6000;
   useEffect(()=>{
@@ -871,7 +1322,7 @@ function MerchantsPage() {
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"0 16px 12px",zIndex:10}}>
           <div style={{display:"flex",alignItems:"center",gap:10}}>
             <div style={{width:32,height:32,borderRadius:"50%",background:C.accentSoft,border:"2px solid "+C.accent,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14}}>💡</div>
-            <div><div style={{fontSize:13,fontWeight:600,color:"#fff"}}>Smart Insight</div><div style={{fontSize:10,color:"rgba(255,255,255,0.55)"}}>Karlsson family</div></div>
+            <div><div style={{fontSize:13,fontWeight:600,color:"#fff"}}>Smart Insight</div><div style={{fontSize:12,color:"rgba(255,255,255,0.55)"}}>Karlsson family</div></div>
           </div>
           <button onClick={closeInsight} style={{background:"rgba(255,255,255,0.15)",border:"none",borderRadius:"50%",width:30,height:30,color:"#fff",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>X</button>
         </div>
@@ -923,7 +1374,7 @@ function MerchantsPage() {
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"0 16px 12px",zIndex:10}}>
           <div style={{display:"flex",alignItems:"center",gap:10}}>
             <div style={{width:32,height:32,borderRadius:"50%",background:s.accent+"33",border:"2px solid "+s.accent,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14}}>{slide.img}</div>
-            <div><div style={{fontSize:13,fontWeight:600,color:"#fff"}}>{s.partner}</div><div style={{fontSize:10,color:"rgba(255,255,255,0.55)"}}>{s.tag}</div></div>
+            <div><div style={{fontSize:13,fontWeight:600,color:"#fff"}}>{s.partner}</div><div style={{fontSize:12,color:"rgba(255,255,255,0.55)"}}>{s.tag}</div></div>
           </div>
           <button onClick={closeStory} style={{background:"rgba(255,255,255,0.15)",border:"none",borderRadius:"50%",width:30,height:30,color:"#fff",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>X</button>
         </div>
@@ -941,9 +1392,9 @@ function MerchantsPage() {
             <div style={{display:"flex",gap:6,marginBottom:12,flexWrap:"wrap"}}>
               {slide.hotspots.map((hs,i)=>(
                 <div key={i} onClick={e=>{e.stopPropagation();cancelAnimationFrame(timerRef.current);setHotspot(hs);}} style={{display:"flex",alignItems:"center",gap:6,background:"rgba(255,255,255,0.12)",backdropFilter:"blur(8px)",border:"1px solid rgba(255,255,255,0.2)",borderRadius:20,padding:"5px 10px",cursor:"pointer",zIndex:7}}>
-                  <span style={{width:16,height:16,borderRadius:"50%",background:s.accent,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:700,color:"#fff"}}>+</span>
-                  <span style={{fontSize:11,fontWeight:500,color:"#fff"}}>{hs.label}</span>
-                  <span style={{fontSize:11,color:"rgba(255,255,255,0.7)"}}>{hs.price}</span>
+                  <span style={{width:16,height:16,borderRadius:"50%",background:s.accent,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,color:"#fff"}}>+</span>
+                  <span style={{fontSize:13,fontWeight:500,color:"#fff"}}>{hs.label}</span>
+                  <span style={{fontSize:13,color:"rgba(255,255,255,0.7)"}}>{hs.price}</span>
                 </div>
               ))}
             </div>
@@ -963,8 +1414,8 @@ function MerchantsPage() {
                 <div><div style={{fontSize:17,fontWeight:600,color:C.t1}}>{hotspot.label}</div><div style={{fontSize:12,color:C.t3}}>{hotspot.partner}</div></div>
               </div>
               <div style={{display:"flex",gap:10,marginBottom:18}}>
-                <div style={{flex:1,background:C.card,borderRadius:14,padding:14,border:"1px solid "+C.border,textAlign:"center"}}><div style={{fontSize:10,color:C.t3,marginBottom:4}}>Full price</div><div style={{fontSize:18,fontWeight:600,color:C.t1}}>{hotspot.price}</div></div>
-                <div style={{flex:1,background:s.accent+"14",borderRadius:14,padding:14,border:"1px solid "+s.accent+"33",textAlign:"center"}}><div style={{fontSize:10,color:s.accent,marginBottom:4}}>With Resurs</div><div style={{fontSize:18,fontWeight:600,color:s.accent}}>{hotspot.monthly}</div></div>
+                <div style={{flex:1,background:C.card,borderRadius:14,padding:14,border:"1px solid "+C.border,textAlign:"center"}}><div style={{fontSize:12,color:C.t3,marginBottom:4}}>Full price</div><div style={{fontSize:18,fontWeight:600,color:C.t1}}>{hotspot.price}</div></div>
+                <div style={{flex:1,background:s.accent+"14",borderRadius:14,padding:14,border:"1px solid "+s.accent+"33",textAlign:"center"}}><div style={{fontSize:12,color:s.accent,marginBottom:4}}>With Resurs</div><div style={{fontSize:18,fontWeight:600,color:s.accent}}>{hotspot.monthly}</div></div>
               </div>
               <button style={{width:"100%",background:s.accent,border:"none",borderRadius:14,padding:14,fontSize:14,fontWeight:600,color:"#fff",cursor:"pointer",marginBottom:10}}>{"Shop now at "+hotspot.partner}</button>
               <button onClick={()=>setHotspot(null)} style={{width:"100%",background:"transparent",border:"none",color:C.t3,fontSize:13,cursor:"pointer"}}>Continue watching</button>
@@ -998,7 +1449,7 @@ function MerchantsPage() {
     );
   }
   return(
-    <div style={{flex:1,overflowY:"auto",scrollbarWidth:"none",background:C.bg}}>
+    <div onClickCapture={saveScroll} style={{flex:1,overflowY:"auto",scrollbarWidth:"none",background:C.bg}}>
       <div style={{background:"linear-gradient(160deg,rgba(124,111,255,0.15) 0%,transparent 60%)",padding:"20px 20px 0"}}>
         <div style={{fontSize:24,fontWeight:500,color:C.t1,marginBottom:2}}>Partners & Deals</div>
         <div style={{fontSize:13,color:C.t2,marginBottom:16}}>Exclusive offers for the Karlsson family</div>
@@ -1013,7 +1464,7 @@ function MerchantsPage() {
                   : <div style={{width:"100%",height:"100%",borderRadius:"50%",background:"linear-gradient(135deg,"+item.color+"33,"+item.color+"11)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:24}}>{item.icon}</div>
                 }
               </div>
-              <div style={{fontSize:10,color:C.t2,textAlign:"center"}}>{item.label}</div>
+              <div style={{fontSize:12,color:C.t2,textAlign:"center"}}>{item.label}</div>
             </div>
           ))}
         </ScrollRow>
@@ -1022,14 +1473,14 @@ function MerchantsPage() {
         <div style={{fontSize:16,fontWeight:500,color:C.t1,marginBottom:12}}>Current Offers</div>
         <ScrollRow scrollRef={offersRef} onScroll={onOffersScroll} style={{display:"flex",gap:10,paddingBottom:4,scrollSnapType:"x mandatory"}}>
           {currentOffers.map(o=>(
-            <div key={o.id} onClick={()=>setActiveOffer(o)} style={{flexShrink:0,width:180,borderRadius:16,overflow:"hidden",cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",scrollSnapAlign:"start"}}>
-              <div style={{height:110,background:"linear-gradient(160deg,"+o.color+"55 0%,#0a0a14 100%)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:44,position:"relative",overflow:"hidden"}}>
+            <div key={o.id} onClick={()=>setActiveOffer(o)} style={{flexShrink:0,width:180,borderRadius:16,overflow:"hidden",cursor:"pointer",border:"1px solid "+C.border,scrollSnapAlign:"start"}}>
+              <div style={{height:110,background:"linear-gradient(160deg,"+o.color+"55 0%,"+C.bg+" 100%)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:44,position:"relative",overflow:"hidden"}}>
                 {o.photo ? <><img src={o.photo} alt="" style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover"}}/><div style={{position:"absolute",inset:0,background:"linear-gradient(160deg,"+o.color+"88 0%,rgba(10,10,20,0.7) 100%)"}}/></> : o.icon}
-                <div style={{position:"absolute",top:8,left:8,background:"rgba(0,0,0,0.5)",borderRadius:6,padding:"2px 7px",zIndex:1}}><span style={{fontSize:10,fontWeight:500,color:o.color}}>{o.tag}</span></div>
+                <div style={{position:"absolute",top:8,left:8,background:"rgba(0,0,0,0.5)",borderRadius:6,padding:"2px 7px",zIndex:1}}><span style={{fontSize:12,fontWeight:500,color:o.color}}>{o.tag}</span></div>
               </div>
               <div style={{background:"#16192a",padding:"10px 12px 12px"}}>
                 <div style={{fontSize:12,fontWeight:500,color:C.t1,marginBottom:3,lineHeight:1.3}}>{o.title}</div>
-                <div style={{fontSize:11,fontWeight:500,color:o.color,marginTop:4}}>{o.monthly}</div>
+                <div style={{fontSize:13,fontWeight:500,color:o.color,marginTop:4}}>{o.monthly}</div>
               </div>
             </div>
           ))}
@@ -1057,14 +1508,14 @@ function MerchantsPage() {
           {memberships.map((card,i)=>(
             <div key={i} style={{height:76,borderRadius:14,background:card.bg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:3,border:"1px solid rgba(255,255,255,0.1)",cursor:"pointer"}}>
               <div style={{fontSize:22}}>{card.icon}</div>
-              <div style={{fontSize:11,fontWeight:600,color:card.textColor}}>{card.name}</div>
-              <div style={{fontSize:9,color:card.textColor,opacity:0.7}}>{card.points}</div>
+              <div style={{fontSize:13,fontWeight:600,color:card.textColor}}>{card.name}</div>
+              <div style={{fontSize:12,color:card.textColor,opacity:0.7}}>{card.points}</div>
             </div>
           ))}
           <div onClick={()=>setShowAdd(true)} style={{height:76,borderRadius:14,background:C.accentSoft,border:"1.5px dashed rgba(124,111,255,0.4)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:3,cursor:"pointer"}}>
             <span style={{fontSize:18,lineHeight:1,color:C.accent}}>+</span>
-            <span style={{fontSize:10,fontWeight:600,color:C.accent}}>Earn rewards</span>
-            <span style={{fontSize:9,color:C.t2}}>Join a partner today</span>
+            <span style={{fontSize:12,fontWeight:600,color:C.accent}}>Earn rewards</span>
+            <span style={{fontSize:12,color:C.t2}}>Join a partner today</span>
           </div>
         </div>
       </div>
@@ -1073,7 +1524,7 @@ function MerchantsPage() {
           <div style={{fontSize:16,fontWeight:500,color:C.t1}}>Recommended for you</div>
           <button onClick={()=>setShowAllRec(true)} style={{background:"none",border:"none",color:C.accent,fontSize:12,cursor:"pointer"}}>View all</button>
         </div>
-        <div style={{fontSize:11,color:C.t3,marginBottom:12}}>Based on your spending habits and savings goals</div>
+        <div style={{fontSize:13,color:C.t3,marginBottom:12}}>Based on your spending habits and savings goals</div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
           {recommended.map(r=>(
             <div key={r.id} style={{borderRadius:16,overflow:"hidden",cursor:"pointer",border:"1px solid "+C.border,background:C.card}}>
@@ -1081,7 +1532,7 @@ function MerchantsPage() {
                 <img src={r.photo} alt={r.partner} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
                 <div style={{position:"absolute",inset:0,background:"linear-gradient(to bottom,transparent 20%,rgba(0,0,0,0.75) 100%)"}}/>
                 <div style={{position:"absolute",top:8,left:8}}>
-                  <div style={{background:r.color,borderRadius:6,padding:"2px 8px",fontSize:9,fontWeight:700,color:"#fff"}}>{r.reason}</div>
+                  <div style={{background:r.color,borderRadius:6,padding:"2px 8px",fontSize:12,fontWeight:700,color:"#fff"}}>{r.reason}</div>
                 </div>
                 <div style={{position:"absolute",bottom:8,left:10,right:10,display:"flex",alignItems:"center",gap:6}}>
                   <div style={{width:28,height:28,borderRadius:8,background:"rgba(255,255,255,0.15)",backdropFilter:"blur(4px)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,flexShrink:0}}>{r.icon}</div>
@@ -1092,7 +1543,7 @@ function MerchantsPage() {
                 <div style={{fontSize:12,fontWeight:500,color:C.t1,lineHeight:1.3,marginBottom:8}}>{r.title}</div>
                 <div style={{background:"rgba(52,211,153,0.1)",border:"1px solid rgba(52,211,153,0.25)",borderRadius:8,padding:"4px 8px",display:"inline-flex",alignItems:"center",gap:4}}>
                   <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#34D399" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
-                  <span style={{fontSize:10,fontWeight:600,color:C.green}}>{r.saving}</span>
+                  <span style={{fontSize:12,fontWeight:600,color:C.green}}>{r.saving}</span>
                 </div>
               </div>
             </div>
@@ -1104,8 +1555,8 @@ function MerchantsPage() {
         {nearby.map((p,i)=>(
           <div key={i} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 0",borderBottom:i<nearby.length-1?"1px solid "+C.border:"none"}}>
             <div style={{width:36,height:36,borderRadius:10,background:p.color+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>{p.icon}</div>
-            <div style={{flex:1}}><div style={{fontSize:13,fontWeight:500,color:C.t1}}>{p.name}</div><div style={{fontSize:11,color:C.t3,marginTop:1}}>{p.dist+" away"}</div></div>
-            {p.membership?<Badge label="Member" color={C.green} bg={C.greenSoft}/>:<button onClick={()=>setShowAdd(true)} style={{background:C.accentSoft,border:"1px solid rgba(124,111,255,0.3)",borderRadius:8,padding:"5px 10px",fontSize:11,color:C.accent,cursor:"pointer"}}>+ Add</button>}
+            <div style={{flex:1}}><div style={{fontSize:13,fontWeight:500,color:C.t1}}>{p.name}</div><div style={{fontSize:13,color:C.t3,marginTop:1}}>{p.dist+" away"}</div></div>
+            {p.membership?<Badge label="Member" color={C.green} bg={C.greenSoft}/>:<button onClick={()=>setShowAdd(true)} style={{background:C.accentSoft,border:"1px solid rgba(124,111,255,0.3)",borderRadius:8,padding:"5px 10px",fontSize:13,color:C.accent,cursor:"pointer"}}>+ Add</button>}
           </div>
         ))}
       </div>
@@ -1128,10 +1579,10 @@ function MerchantsPage() {
                   <span style={{fontSize:14,fontWeight:600,color:C.t1}}>{r.partner}</span>
                 </div>
                 <div style={{fontSize:12,color:C.t1,fontWeight:500,lineHeight:1.3}}>{r.title}</div>
-                <div style={{background:r.color+"22",borderRadius:6,padding:"2px 8px",fontSize:10,fontWeight:600,color:r.color,alignSelf:"flex-start"}}>{r.reason}</div>
+                <div style={{background:r.color+"22",borderRadius:6,padding:"2px 8px",fontSize:12,fontWeight:600,color:r.color,alignSelf:"flex-start"}}>{r.reason}</div>
                 <div style={{display:"inline-flex",alignItems:"center",gap:4}}>
                   <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#34D399" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
-                  <span style={{fontSize:11,fontWeight:600,color:C.green}}>{r.saving}</span>
+                  <span style={{fontSize:13,fontWeight:600,color:C.green}}>{r.saving}</span>
                 </div>
               </div>
             </div>
@@ -1143,13 +1594,70 @@ function MerchantsPage() {
 }
 
 // ── MY RESURS ──────────────────────────────────────────────────────────────────
-function MyResursPage() {
+function MyResursPage({ mainScrollRef=null }) {
+  const { isDark, toggleTheme, isResurs, toggleResurs } = useContext(ThemeCtx);
+  const [showSettings, setShowSettings] = useState(false);
+  const saveScroll = useScrollRestore(mainScrollRef, showSettings);
+  const menuItems = [
+    {icon:"👤",label:"Profile",sub:"Anna Karlsson"},
+    {icon:"🔔",label:"Notifications",sub:"2 unread"},
+    {icon:"🔒",label:"Security",sub:"2-factor enabled"},
+    {icon:"📄",label:"Documents",sub:"Statements and agreements"},
+    {icon:"💬",label:"Support",sub:"Chat with us"},
+    {icon:"⚙️",label:"Settings",sub:"App preferences",action:()=>setShowSettings(true)},
+  ];
+  if(showSettings) return (
+    <div style={{flex:1,overflowY:"auto",padding:"24px 20px 40px"}}>
+      <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:24}}>
+        <button onClick={()=>setShowSettings(false)} style={{background:"rgba(124,111,255,0.12)",border:"none",borderRadius:"50%",width:34,height:34,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",flexShrink:0}}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={C.t1} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        <div style={{fontSize:20,fontWeight:500,color:C.t1}}>Settings</div>
+      </div>
+      <div style={{fontSize:13,fontWeight:500,color:C.t3,textTransform:"uppercase",letterSpacing:1,marginBottom:10}}>Appearance</div>
+      <div style={{background:C.card,borderRadius:16,border:"1px solid "+C.border,padding:"16px 18px",marginBottom:20}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          <div style={{display:"flex",alignItems:"center",gap:12}}>
+            <div style={{width:40,height:40,borderRadius:11,background:"rgba(124,111,255,0.12)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>{isDark?"🌙":"☀️"}</div>
+            <div>
+              <div style={{fontSize:14,fontWeight:500,color:C.t1}}>{isDark?"Dark mode":"Light mode"}</div>
+              <div style={{fontSize:12,color:C.t3}}>{isDark?"Easier on the eyes at night":"Bright and clear"}</div>
+            </div>
+          </div>
+          <button onClick={toggleTheme} style={{width:50,height:28,borderRadius:999,background:isDark?"#7C6FFF":"rgba(0,0,0,0.15)",border:"none",cursor:"pointer",position:"relative",transition:"background 0.25s",flexShrink:0}}>
+            <span style={{position:"absolute",top:3,left:isDark?24:3,width:22,height:22,borderRadius:"50%",background:"#fff",boxShadow:"0 1px 4px rgba(0,0,0,0.3)",transition:"left 0.25s",display:"block"}}/>
+          </button>
+        </div>
+        <div style={{height:1,background:C.border,margin:"12px 0"}}/>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          <div style={{display:"flex",alignItems:"center",gap:12}}>
+            <div style={{width:40,height:40,borderRadius:11,background:"rgba(0,122,112,0.12)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>🏦</div>
+            <div>
+              <div style={{fontSize:14,fontWeight:500,color:C.t1}}>Resurs theme</div>
+              <div style={{fontSize:12,color:C.t3}}>{isResurs?"Official Resurs look":"Default Family theme"}</div>
+            </div>
+          </div>
+          <button onClick={toggleResurs} style={{width:50,height:28,borderRadius:999,background:isResurs?"#007A70":"rgba(0,0,0,0.15)",border:"none",cursor:"pointer",position:"relative",transition:"background 0.25s",flexShrink:0}}>
+            <span style={{position:"absolute",top:3,left:isResurs?24:3,width:22,height:22,borderRadius:"50%",background:"#fff",boxShadow:"0 1px 4px rgba(0,0,0,0.3)",transition:"left 0.25s",display:"block"}}/>
+          </button>
+        </div>
+      </div>
+      <div style={{fontSize:13,fontWeight:500,color:C.t3,textTransform:"uppercase",letterSpacing:1,marginBottom:10}}>Other</div>
+      {[{icon:"🔔",label:"Notifications",sub:"Push, email & SMS"},{icon:"🌐",label:"Language",sub:"Svenska"},{icon:"💶",label:"Currency",sub:"SEK – Swedish krona"}].map((item,i)=>(
+        <div key={i} style={{display:"flex",alignItems:"center",gap:14,background:C.card,borderRadius:14,padding:"14px 16px",marginBottom:10,border:"1px solid "+C.border,cursor:"pointer"}} onMouseEnter={e=>e.currentTarget.style.background=C.cardHover} onMouseLeave={e=>e.currentTarget.style.background=C.card}>
+          <div style={{width:40,height:40,borderRadius:11,background:"rgba(124,111,255,0.12)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>{item.icon}</div>
+          <div style={{flex:1}}><div style={{fontSize:14,fontWeight:500,color:C.t1}}>{item.label}</div><div style={{fontSize:12,color:C.t3}}>{item.sub}</div></div>
+          <div style={{color:C.t3,fontSize:16}}>{">"}</div>
+        </div>
+      ))}
+    </div>
+  );
   return (
-    <div style={{flex:1,overflowY:"auto",padding:"24px 20px 20px"}}>
+    <div onClickCapture={saveScroll} style={{flex:1,overflowY:"auto",padding:"24px 20px 20px"}}>
       <div style={{fontSize:28,fontWeight:500,color:C.t1,marginBottom:4}}>My Resurs</div>
       <div style={{fontSize:14,color:C.t2,marginBottom:24}}>Account & settings</div>
-                {[{icon:"👤",label:"Profile",sub:"Anna Karlsson"},{icon:"🔔",label:"Notifications",sub:"2 unread"},{icon:"🔒",label:"Security",sub:"2-factor enabled"},{icon:"📄",label:"Documents",sub:"Statements and agreements"},{icon:"💬",label:"Support",sub:"Chat with us"},{icon:"⚙️",label:"Settings",sub:"App preferences"}].map((item,i)=>(
-        <div key={i} style={{display:"flex",alignItems:"center",gap:14,background:C.card,borderRadius:14,padding:"14px 16px",marginBottom:10,border:"1px solid "+C.border,cursor:"pointer"}} onMouseEnter={e=>e.currentTarget.style.background=C.cardHover} onMouseLeave={e=>e.currentTarget.style.background=C.card}>
+      {menuItems.map((item,i)=>(
+        <div key={i} onClick={item.action} style={{display:"flex",alignItems:"center",gap:14,background:C.card,borderRadius:14,padding:"14px 16px",marginBottom:10,border:"1px solid "+C.border,cursor:"pointer"}} onMouseEnter={e=>e.currentTarget.style.background=C.cardHover} onMouseLeave={e=>e.currentTarget.style.background=C.card}>
           <div style={{width:40,height:40,borderRadius:11,background:"rgba(124,111,255,0.12)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>{item.icon}</div>
           <div style={{flex:1}}><div style={{fontSize:14,fontWeight:500,color:C.t1}}>{item.label}</div><div style={{fontSize:12,color:C.t3}}>{item.sub}</div></div>
           <div style={{color:C.t3,fontSize:16}}>{">"}</div>
@@ -1163,7 +1671,7 @@ function MyResursPage() {
 function SavingsCalculator({ members, buffer, childFund, onBack }) {
   const allGoals=[
     {name:"Buffer account",color:"#7C6FFF",saved:buffer.balance,monthly:buffer.monthly,target:null,emoji:"🛟"},
-    {name:"Maja's 0–18 fund",color:"#F472B6",saved:childFund.balance,monthly:childFund.monthly,target:null,emoji:"🌱"},
+    {name:childFund.name,color:"#F472B6",saved:childFund.balance,monthly:childFund.monthly,target:null,emoji:"🌱"},{name:lucasFund.name,color:"#FBBF24",saved:lucasFund.balance,monthly:lucasFund.monthly,target:null,emoji:"🌱"},
     ...members.map(m=>({name:m.savingsGoal.name,color:m.savingsGoal.color,saved:m.savingsGoal.saved,monthly:m.savingsGoal.monthly,target:m.savingsGoal.target,emoji:m.savingsGoal.emoji}))
   ];
   const totalSaved=allGoals.reduce((s,g)=>s+g.saved,0);
@@ -1204,26 +1712,26 @@ function SavingsCalculator({ members, buffer, childFund, onBack }) {
         <div style={{background:C.card,borderRadius:18,border:"1px solid "+C.border,padding:"18px 20px",marginBottom:16}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16}}>
             <div>
-              <div style={{fontSize:11,color:C.t3,marginBottom:4}}>Current savings</div>
+              <div style={{fontSize:13,color:C.t3,marginBottom:4}}>Current savings</div>
               <div style={{fontSize:28,fontWeight:500,color:C.t1}}>{fmt(totalSaved)+" kr"}</div>
             </div>
             <div style={{textAlign:"right"}}>
-              <div style={{fontSize:11,color:C.t3,marginBottom:4}}>Monthly contributions</div>
+              <div style={{fontSize:13,color:C.t3,marginBottom:4}}>Monthly contributions</div>
               <div style={{fontSize:18,fontWeight:500,color:C.green}}>{"+ "+fmt(totalMonthly)+" kr"}</div>
             </div>
           </div>
           <div style={{display:"flex",gap:6,marginBottom:16}}>
             {timeOptions.map(t=>(
-              <button key={t.val} onClick={()=>setMonths(t.val)} style={{flex:1,background:months===t.val?C.accent:"rgba(255,255,255,0.06)",border:months===t.val?"none":"1px solid "+C.border,borderRadius:10,padding:"7px 0",fontSize:11,fontWeight:months===t.val?600:400,color:months===t.val?"#fff":C.t2,cursor:"pointer"}}>{t.label}</button>
+              <button key={t.val} onClick={()=>setMonths(t.val)} style={{flex:1,background:months===t.val?C.accent:"rgba(255,255,255,0.06)",border:months===t.val?"none":"1px solid "+C.border,borderRadius:10,padding:"7px 0",fontSize:13,fontWeight:months===t.val?600:400,color:months===t.val?"#fff":C.t2,cursor:"pointer"}}>{t.label}</button>
             ))}
           </div>
           <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
-            <div style={{fontSize:11,color:C.t3,flexShrink:0}}>Interest rate</div>
+            <div style={{fontSize:13,color:C.t3,flexShrink:0}}>Interest rate</div>
             <input type="range" min="0" max="8" step="0.5" value={rate} onChange={e=>setRate(Number(e.target.value))} style={{flex:1,accentColor:C.green}}/>
             <div style={{fontSize:13,fontWeight:600,color:C.green,minWidth:36,textAlign:"right"}}>{rate+"%"}</div>
           </div>
           <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
-            <div style={{fontSize:11,color:C.t3,flexShrink:0}}>Extra / month</div>
+            <div style={{fontSize:13,color:C.t3,flexShrink:0}}>Extra / month</div>
             <input type="range" min="0" max="5000" step="100" value={extraMonthly} onChange={e=>setExtraMonthly(Number(e.target.value))} style={{flex:1,accentColor:"#7C6FFF"}}/>
             <div style={{fontSize:13,fontWeight:600,color:extraMonthly>0?"#7C6FFF":C.t3,minWidth:60,textAlign:"right"}}>{extraMonthly>0?"+"+fmt(extraMonthly)+" kr":"0 kr"}</div>
           </div>
@@ -1244,18 +1752,18 @@ function SavingsCalculator({ members, buffer, childFund, onBack }) {
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:12,padding:"10px 0",borderTop:"1px solid "+C.border}}>
             <div style={{display:"flex",alignItems:"center",gap:8}}>
               <div style={{width:12,height:3,borderRadius:2,background:"#34D399"}}/>
-              <span style={{fontSize:11,color:C.t2}}>{fmt(totalMonthly)+" kr/mo"}</span>
+              <span style={{fontSize:13,color:C.t2}}>{fmt(totalMonthly)+" kr/mo"}</span>
             </div>
             <div style={{fontSize:15,fontWeight:600,color:"#34D399"}}>{fmt(Math.round(projectedTotal))+" kr"}</div>
           </div>
           {extra&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderTop:"1px solid "+C.border}}>
             <div style={{display:"flex",alignItems:"center",gap:8}}>
               <div style={{width:12,height:3,borderRadius:2,background:"#7C6FFF",borderTop:"1px dashed #7C6FFF"}}/>
-              <span style={{fontSize:11,color:C.t2}}>{fmt(totalMonthly+extraMonthly)+" kr/mo"}</span>
+              <span style={{fontSize:13,color:C.t2}}>{fmt(totalMonthly+extraMonthly)+" kr/mo"}</span>
             </div>
             <div style={{display:"flex",alignItems:"center",gap:6}}>
               <span style={{fontSize:15,fontWeight:600,color:"#7C6FFF"}}>{fmt(Math.round(projectedExtra))+" kr"}</span>
-              <span style={{fontSize:11,fontWeight:600,color:C.green,background:C.greenSoft,borderRadius:6,padding:"1px 6px"}}>{"+"+fmt(Math.round(projectedExtra-projectedTotal))}</span>
+              <span style={{fontSize:13,fontWeight:600,color:C.green,background:C.greenSoft,borderRadius:6,padding:"1px 6px"}}>{"+"+fmt(Math.round(projectedExtra-projectedTotal))}</span>
             </div>
           </div>}
         </div>
@@ -1263,28 +1771,28 @@ function SavingsCalculator({ members, buffer, childFund, onBack }) {
         {extra&&<div style={{background:"linear-gradient(135deg,rgba(124,111,255,0.12),rgba(52,211,153,0.08))",border:"1px solid rgba(124,111,255,0.3)",borderRadius:16,padding:"16px 18px",marginBottom:16}}>
           <div style={{fontSize:13,fontWeight:600,color:C.t1,marginBottom:10}}>{"Saving "+fmt(extraMonthly)+" kr more per month"}</div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-            <div><div style={{fontSize:10,color:C.t3,marginBottom:2}}>Extra total</div><div style={{fontSize:16,fontWeight:600,color:"#7C6FFF"}}>{"+"+fmt(Math.round(projectedExtra-projectedTotal))+" kr"}</div></div>
-            <div><div style={{fontSize:10,color:C.t3,marginBottom:2}}>New projected</div><div style={{fontSize:16,fontWeight:600,color:C.green}}>{fmt(Math.round(projectedExtra))+" kr"}</div></div>
-            <div><div style={{fontSize:10,color:C.t3,marginBottom:2}}>Extra interest</div><div style={{fontSize:16,fontWeight:600,color:C.amber}}>{"+"+fmt(Math.max(0,Math.round((projectedExtra-totalSaved-(totalMonthly+extraMonthly)*months)-(interestEarned))))+" kr"}</div></div>
-            <div><div style={{fontSize:10,color:C.t3,marginBottom:2}}>Total vs current</div><div style={{fontSize:16,fontWeight:600,color:C.t1}}>{Math.round((projectedExtra/projectedTotal-1)*100)+"% more"}</div></div>
+            <div><div style={{fontSize:12,color:C.t3,marginBottom:2}}>Extra total</div><div style={{fontSize:16,fontWeight:600,color:"#7C6FFF"}}>{"+"+fmt(Math.round(projectedExtra-projectedTotal))+" kr"}</div></div>
+            <div><div style={{fontSize:12,color:C.t3,marginBottom:2}}>New projected</div><div style={{fontSize:16,fontWeight:600,color:C.green}}>{fmt(Math.round(projectedExtra))+" kr"}</div></div>
+            <div><div style={{fontSize:12,color:C.t3,marginBottom:2}}>Extra interest</div><div style={{fontSize:16,fontWeight:600,color:C.amber}}>{"+"+fmt(Math.max(0,Math.round((projectedExtra-totalSaved-(totalMonthly+extraMonthly)*months)-(interestEarned))))+" kr"}</div></div>
+            <div><div style={{fontSize:12,color:C.t3,marginBottom:2}}>Total vs current</div><div style={{fontSize:16,fontWeight:600,color:C.t1}}>{Math.round((projectedExtra/projectedTotal-1)*100)+"% more"}</div></div>
           </div>
         </div>}
 
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:16}}>
           <div style={{background:C.card,borderRadius:14,border:"1px solid "+C.border,padding:"14px 12px",textAlign:"center"}}>
-            <div style={{fontSize:10,color:C.t3,marginBottom:4}}>Projected total</div>
+            <div style={{fontSize:12,color:C.t3,marginBottom:4}}>Projected total</div>
             <div style={{fontSize:16,fontWeight:600,color:C.green}}>{fmt(Math.round(projectedTotal))}</div>
-            <div style={{fontSize:10,color:C.t3}}>kr</div>
+            <div style={{fontSize:12,color:C.t3}}>kr</div>
           </div>
           <div style={{background:C.card,borderRadius:14,border:"1px solid "+C.border,padding:"14px 12px",textAlign:"center"}}>
-            <div style={{fontSize:10,color:C.t3,marginBottom:4}}>Total growth</div>
+            <div style={{fontSize:12,color:C.t3,marginBottom:4}}>Total growth</div>
             <div style={{fontSize:16,fontWeight:600,color:C.accent}}>{"+"+fmt(Math.round(growth))}</div>
-            <div style={{fontSize:10,color:C.t3}}>kr</div>
+            <div style={{fontSize:12,color:C.t3}}>kr</div>
           </div>
           <div style={{background:C.card,borderRadius:14,border:"1px solid "+C.border,padding:"14px 12px",textAlign:"center"}}>
-            <div style={{fontSize:10,color:C.t3,marginBottom:4}}>Interest earned</div>
+            <div style={{fontSize:12,color:C.t3,marginBottom:4}}>Interest earned</div>
             <div style={{fontSize:16,fontWeight:600,color:C.amber}}>{"+"+fmt(Math.max(0,Math.round(interestEarned)))}</div>
-            <div style={{fontSize:10,color:C.t3}}>kr</div>
+            <div style={{fontSize:12,color:C.t3}}>kr</div>
           </div>
         </div>
 
@@ -1296,23 +1804,23 @@ function SavingsCalculator({ members, buffer, childFund, onBack }) {
                 <div style={{width:32,height:32,borderRadius:"50%",background:g.color+"22",border:"2px solid "+g.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>{g.emoji}</div>
                 <div style={{flex:1}}>
                   <div style={{fontSize:13,fontWeight:500,color:C.t1}}>{g.name}</div>
-                  <div style={{fontSize:11,color:C.t3}}>{fmt(g.saved)+" kr now"}</div>
+                  <div style={{fontSize:13,color:C.t3}}>{fmt(g.saved)+" kr now"}</div>
                 </div>
                 <div style={{textAlign:"right"}}>
                   <div style={{fontSize:14,fontWeight:600,color:g.color}}>{fmt(g.projected)+" kr"}</div>
-                  <div style={{fontSize:10,color:C.green}}>{"+ "+pctGrowth+"%"}</div>
+                  <div style={{fontSize:12,color:C.green}}>{"+ "+pctGrowth+"%"}</div>
                 </div>
               </div>
               {selIdx===i&&<div style={{background:"rgba(255,255,255,0.03)",borderRadius:10,padding:"10px 12px",marginTop:4}}>
-                <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:C.t2,marginBottom:6}}><span>Monthly deposit</span><span style={{color:C.t1,fontWeight:500}}>{fmt(g.monthly)+" kr"}</span></div>
-                <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:C.t2,marginBottom:6}}><span>Contributions ({months} mo)</span><span style={{color:C.t1,fontWeight:500}}>{fmt(g.monthly*months)+" kr"}</span></div>
-                <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:C.t2,marginBottom:6}}><span>Interest earned</span><span style={{color:C.amber,fontWeight:500}}>{"+"+fmt(Math.max(0,g.interest))+" kr"}</span></div>
+                <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:C.t2,marginBottom:6}}><span>Monthly deposit</span><span style={{color:C.t1,fontWeight:500}}>{fmt(g.monthly)+" kr"}</span></div>
+                <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:C.t2,marginBottom:6}}><span>Contributions ({months} mo)</span><span style={{color:C.t1,fontWeight:500}}>{fmt(g.monthly*months)+" kr"}</span></div>
+                <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:C.t2,marginBottom:6}}><span>Interest earned</span><span style={{color:C.amber,fontWeight:500}}>{"+"+fmt(Math.max(0,g.interest))+" kr"}</span></div>
                 {g.target&&<div style={{marginTop:8}}>
-                  <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:C.t2,marginBottom:4}}><span>Goal progress</span><span style={{color:g.color,fontWeight:500}}>{Math.min(100,Math.round((g.projected/g.target)*100))+"%"}</span></div>
+                  <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:C.t2,marginBottom:4}}><span>Goal progress</span><span style={{color:g.color,fontWeight:500}}>{Math.min(100,Math.round((g.projected/g.target)*100))+"%"}</span></div>
                   <Bar value={Math.min(g.projected,g.target)} max={g.target} color={g.color}/>
-                  <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:C.t3,marginTop:3}}><span>{fmt(g.projected)+" kr"}</span><span>{fmt(g.target)+" kr"}</span></div>
-                  {g.projected>=g.target&&<div style={{marginTop:6,background:C.greenSoft,border:"1px solid "+C.green+"44",borderRadius:8,padding:"4px 10px",fontSize:11,color:C.green,fontWeight:500,textAlign:"center"}}>{"🎉 Goal reached in "+months+" months!"}</div>}
-                  {g.projected<g.target&&<div style={{marginTop:6,fontSize:10,color:C.t3,textAlign:"center"}}>{"~"+Math.ceil((g.target-g.saved)/g.monthly)+" months to reach goal"}</div>}
+                  <div style={{display:"flex",justifyContent:"space-between",fontSize:12,color:C.t3,marginTop:3}}><span>{fmt(g.projected)+" kr"}</span><span>{fmt(g.target)+" kr"}</span></div>
+                  {g.projected>=g.target&&<div style={{marginTop:6,background:C.greenSoft,border:"1px solid "+C.green+"44",borderRadius:8,padding:"4px 10px",fontSize:13,color:C.green,fontWeight:500,textAlign:"center"}}>{"🎉 Goal reached in "+months+" months!"}</div>}
+                  {g.projected<g.target&&<div style={{marginTop:6,fontSize:12,color:C.t3,textAlign:"center"}}>{"~"+Math.ceil((g.target-g.saved)/g.monthly)+" months to reach goal"}</div>}
                 </div>}
               </div>}
               {i<goalBreakdown.length-1&&<div style={{borderBottom:"1px solid "+C.border,marginTop:12}}/>}
@@ -1328,15 +1836,15 @@ function SavingsCalculator({ members, buffer, childFund, onBack }) {
               {(()=>{const circ=2*Math.PI*58;let cum=0;const tot=goalBreakdown.reduce((s,g)=>s+g.projected,0);return goalBreakdown.map((g,i)=>{const frac=g.projected/tot,dash=frac*circ,offset=circ-cum*circ;cum+=frac;return <circle key={i} cx="80" cy="80" r="58" fill="none" stroke={g.color} strokeWidth={selIdx===i?28:22} strokeDasharray={dash+" "+(circ-dash)} strokeDashoffset={offset} strokeLinecap="butt" style={{cursor:"pointer",opacity:selIdx!==null&&selIdx!==i?0.4:1,transition:"all 0.15s"}} onClick={()=>setSelIdx(selIdx===i?null:i)}/>;});})()}
             </svg>
             <div style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",textAlign:"center",pointerEvents:"none"}}>
-              <div style={{fontSize:10,color:C.t3,marginBottom:2}}>Projected</div>
+              <div style={{fontSize:12,color:C.t3,marginBottom:2}}>Projected</div>
               <div style={{fontSize:15,fontWeight:500,color:C.t1}}>{fmt(Math.round(projectedTotal))}</div>
-              <div style={{fontSize:11,color:C.t2}}>kr</div>
+              <div style={{fontSize:13,color:C.t2}}>kr</div>
             </div>
           </div>
           <div style={{display:"flex",flexWrap:"wrap",gap:10,justifyContent:"center"}}>
             {goalBreakdown.map((g,i)=>{const tot=goalBreakdown.reduce((s,gg)=>s+gg.projected,0);return(
               <div key={i} onClick={()=>setSelIdx(selIdx===i?null:i)} style={{display:"flex",alignItems:"center",gap:5,cursor:"pointer",opacity:selIdx!==null&&selIdx!==i?0.45:1}}>
-                <div style={{width:8,height:8,borderRadius:"50%",background:g.color}}/><span style={{fontSize:10,color:C.t2}}>{g.name}</span><span style={{fontSize:10,fontWeight:500,color:C.t1}}>{Math.round(g.projected/tot*100)+"%"}</span>
+                <div style={{width:8,height:8,borderRadius:"50%",background:g.color}}/><span style={{fontSize:12,color:C.t2}}>{g.name}</span><span style={{fontSize:12,fontWeight:500,color:C.t1}}>{Math.round(g.projected/tot*100)+"%"}</span>
               </div>
             );})}
           </div>
@@ -1357,19 +1865,574 @@ function DonutChart({ categories, total, onSliceClick, activeIdx }) {
         {slices.map((s,i)=><circle key={i} cx={cx} cy={cy} r={r} fill="none" stroke={s.color} strokeWidth={activeIdx===i?stroke+6:stroke} strokeDasharray={s.dash+" "+(circ-s.dash)} strokeDashoffset={s.offset} strokeLinecap="butt" style={{cursor:"pointer",opacity:activeIdx!==null&&activeIdx!==i?0.4:1,transition:"all 0.15s"}} onClick={()=>onSliceClick(i)}/>)}
       </svg>
       <div style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",textAlign:"center",pointerEvents:"none"}}>
-        <div style={{fontSize:10,color:C.t3,marginBottom:2}}>Total</div>
+        <div style={{fontSize:12,color:C.t3,marginBottom:2}}>Total</div>
         <div style={{fontSize:15,fontWeight:500,color:C.t1}}>{fmt(total)}</div>
-        <div style={{fontSize:11,color:C.t2}}>kr</div>
+        <div style={{fontSize:13,color:C.t2}}>kr</div>
       </div>
     </div>
   );
 }
 
-function ExpenseReport({ onBack }) {
+// ── SPENDING (Plan + Actual unified) ──────────────────────────────────────────
+// Variable categories — where the family can actually act
+const SPEND_VAR = [
+  { name:"Food & dining", icon:"🛒", color:"#FB923C", planned:4500, actual:3440, txKeys:["Groceries","Food & dining"] },
+  { name:"Shopping",      icon:"🛍", color:"#A78BFA", planned:1000, actual:1190, txKeys:["Shopping"] },
+  { name:"Entertainment", icon:"🎮", color:"#38BDF8", planned:600,  actual:399,  txKeys:["Gaming"] },
+  { name:"Subscriptions", icon:"🔄", color:"#F472B6", planned:348,  actual:99,   txKeys:["Subscriptions"] },
+];
+// Committed costs — always paid, no variable risk
+const SPEND_FIXED = [
+  { name:"Housing",    icon:"🏠", color:"#7C6FFF", amount:12000, sub:"Rent" },
+  { name:"Utilities",  icon:"⚡", color:"#60A5FA", amount:1577,  sub:"Electricity · Internet · Phones" },
+  { name:"Insurance",  icon:"🛡", color:"#34D399", amount:1340,  sub:"Home & car insurance" },
+  { name:"Health",     icon:"💪", color:"#F87171", amount:499,   sub:"Gym membership" },
+];
+const SPEND_UPCOMING = [
+  { name:"Internet",       icon:"📡", color:"#60A5FA", amount:399,  day:10 },
+  { name:"Spotify Family", icon:"🎵", color:"#F472B6", amount:179,  day:15 },
+  { name:"Netflix",        icon:"🎬", color:"#F472B6", amount:169,  day:8  },
+  { name:"Phone — Anna",   icon:"📱", color:"#60A5FA", amount:249,  day:20 },
+  { name:"Phone — Erik",   icon:"📱", color:"#60A5FA", amount:249,  day:20 },
+  { name:"Electricity",    icon:"⚡", color:"#60A5FA", amount:680,  day:25 },
+];
+
+function SpendingPage({ members, buffer, childFund, lucasFund, loans=[], onManageFixed, scrollContainerRef, selCat, onSelCat, spendView, onSpendView }) {
+  const [income,setIncome] = useState(28000);
+  const [editIncome,setEditIncome] = useState(false);
+  const [incomeInput,setIncomeInput] = useState("28000");
+  const [limits,setLimits] = useState<Record<string,number>>(()=>Object.fromEntries(SPEND_VAR.map(c=>[c.name,c.planned])));
+  const [limitInputs,setLimitInputs] = useState<Record<string,string>>(()=>Object.fromEntries(SPEND_VAR.map(c=>[c.name,String(c.planned)])));
+  const [actuals,setActuals] = useState<Record<string,number>>(()=>Object.fromEntries(SPEND_VAR.map(c=>[c.name,c.actual])));
+  const [customVars,setCustomVars] = useState<any[]>([]);
+  const [showAddForm,setShowAddForm] = useState(false);
+  const [newIcon,setNewIcon] = useState("💡");
+  const [newName,setNewName] = useState("");
+  const [newLimit,setNewLimit] = useState("");
+  // Add expense form state
+  const [expCat,setExpCat] = useState<string>("");
+  const [expAmount,setExpAmount] = useState("");
+  // Allocate state
+  const [allocAmounts, setAllocAmounts] = useState<Record<string,string>>({});
+  const [expDesc,setExpDesc] = useState("");
+  const EXTRA_COLORS = ["#818CF8","#FB7185","#2DD4BF","#FACC15","#C084FC","#34D399"];
+  const saveScroll = useScrollRestore(scrollContainerRef, !!(selCat || spendView));
+
+  const allVars = [...SPEND_VAR, ...customVars].map(c=>({...c, actual: actuals[c.name]??c.actual}));
+
+  const addCategory = () => {
+    if (!newName.trim() || !parseInt(newLimit)) return;
+    const color = EXTRA_COLORS[customVars.length % EXTRA_COLORS.length];
+    const cat = {name:newName.trim(), icon:newIcon, color, planned:parseInt(newLimit), actual:0, txKeys:[]};
+    setCustomVars(v=>[...v,cat]);
+    setLimits(l=>({...l,[cat.name]:cat.planned}));
+    setLimitInputs(l=>({...l,[cat.name]:String(cat.planned)}));
+    setActuals(a=>({...a,[cat.name]:0}));
+    setNewName(""); setNewLimit(""); setNewIcon("💡"); setShowAddForm(false);
+  };
+
+  const submitExpense = () => {
+    const amt = parseInt(expAmount);
+    if (!expCat || !amt) return;
+    setActuals(a=>({...a,[expCat]:(a[expCat]||0)+amt}));
+    setExpCat(""); setExpAmount(""); setExpDesc("");
+    onSpendView(null);
+  };
+
+  const today = new Date();
+  const daysInMonth = new Date(today.getFullYear(), today.getMonth()+1, 0).getDate();
+  const daysElapsed = today.getDate();
+  const daysLeft = daysInMonth - daysElapsed;
+  const dayPct = daysElapsed / daysInMonth;
+
+  const savingsMonthly = buffer.monthly + childFund.monthly + members.reduce((s,m)=>s+m.savingsGoal.monthly,0);
+  const committedTotal = SPEND_FIXED.reduce((s,c)=>s+c.amount,0);
+  const variableSpent  = allVars.reduce((s,c)=>s+c.actual,0);
+  const freeAfter = Math.max(0, income - committedTotal - variableSpent - savingsMonthly);
+
+  const getStatus = (actual:number, planned:number) => {
+    const usedPct = actual / planned;
+    if (usedPct >= 1.0) return "over";
+    if (usedPct >= 0.85) return "critical";
+    if (usedPct >= 0.70 || usedPct > dayPct * 1.5) return "warn";
+    return "ok";
+  };
+  const statusColor = (s:string, catColor:string) =>
+    s==="over"||s==="critical" ? C.red : s==="warn" ? C.amber : catColor;
+
+  // Drill-down view
+  if (selCat) {
+    const allTxs = selCat.txKeys.flatMap(k => CATEGORY_TXS[k]||[]);
+    const status = getStatus(selCat.actual, selCat.planned);
+    const barCol = statusColor(status, selCat.color);
+    return (
+      <div style={{background:C.bg,minHeight:"100%",color:C.t1}}>
+        <div style={{background:"linear-gradient(160deg,"+selCat.color+"33 0%,"+C.bg+" 60%)",padding:"20px 20px 28px"}}>
+          <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:16}}>
+            <div style={{width:52,height:52,borderRadius:14,background:selCat.color+"22",border:"2px solid "+selCat.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24}}>{selCat.icon}</div>
+            <div>
+              <div style={{fontSize:20,fontWeight:500,color:C.t1}}>{selCat.name}</div>
+              <div style={{fontSize:12,color:C.t2}}>{fmt(selCat.actual)+" kr spent of "+fmt(selCat.planned)+" kr planned"}</div>
+            </div>
+          </div>
+          <div style={{height:6,borderRadius:999,background:C.border,overflow:"hidden"}}>
+            <div style={{width:Math.min(100,Math.round(selCat.actual/selCat.planned*100))+"%",height:"100%",borderRadius:999,background:barCol}}/>
+          </div>
+        </div>
+        <div style={{padding:"16px 20px 40px"}}>
+          <div style={{background:C.card,borderRadius:16,border:"1px solid "+C.border,overflow:"hidden"}}>
+            {allTxs.length ? allTxs.map((tx,i)=>(
+              <div key={i} style={{display:"flex",alignItems:"center",gap:12,padding:"13px 16px",borderBottom:i<allTxs.length-1?"1px solid "+C.border:"none"}}>
+                <div style={{width:36,height:36,borderRadius:10,background:selCat.color+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>{selCat.icon}</div>
+                <div style={{flex:1}}><div style={{fontSize:13,fontWeight:500,color:C.t1}}>{tx.merchant}</div><div style={{fontSize:13,color:C.t3}}>{tx.member+" · "+tx.date}</div></div>
+                <span style={{fontSize:13,fontWeight:500,color:C.red}}>{tx.amount.toLocaleString("sv-SE")+" kr"}</span>
+              </div>
+            )) : <div style={{padding:20,textAlign:"center",fontSize:13,color:C.t3}}>No transactions this month</div>}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (spendView === "manage") {
+    return (
+      <div style={{background:C.bg,minHeight:"100%",color:C.t1,padding:"20px 20px 40px"}}>
+        <div style={{background:C.card,borderRadius:16,border:"1px solid "+C.border,overflow:"hidden",marginBottom:12}}>
+          {allVars.map((cat,i)=>(
+            <div key={cat.name} style={{display:"flex",alignItems:"center",gap:12,padding:"14px 16px",borderBottom:i<allVars.length-1?"1px solid "+C.border:"none"}}>
+              <div style={{width:36,height:36,borderRadius:10,background:cat.color+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>{cat.icon}</div>
+              <span style={{flex:1,fontSize:13,fontWeight:500,color:C.t1}}>{cat.name}</span>
+              <div style={{display:"flex",alignItems:"center",gap:6}}>
+                <input value={limitInputs[cat.name]??""} onChange={e=>setLimitInputs(l=>({...l,[cat.name]:e.target.value}))}
+                  onBlur={()=>{const v=parseInt(limitInputs[cat.name]);if(v>0)setLimits(l=>({...l,[cat.name]:v}));else setLimitInputs(l=>({...l,[cat.name]:String(limits[cat.name])}));}}
+                  onKeyDown={e=>{if(e.key==="Enter")(e.target as HTMLInputElement).blur();}}
+                  type="number" style={{width:72,background:C.surface,border:"1px solid "+C.border,borderRadius:8,padding:"5px 8px",color:C.t1,fontSize:13,outline:"none",textAlign:"right"}}/>
+                <span style={{fontSize:13,color:C.t3}}>kr</span>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {showAddForm ? (
+          <div style={{background:C.card,borderRadius:16,border:"1px solid "+C.accent+"44",padding:"16px"}}>
+            <div style={{fontSize:13,fontWeight:500,color:C.t1,marginBottom:14}}>New expense category</div>
+            <div style={{display:"flex",flexDirection:"column",gap:10}}>
+              <div style={{display:"flex",gap:10}}>
+                <input value={newIcon} onChange={e=>setNewIcon(e.target.value)} placeholder="🏷️"
+                  style={{width:48,background:C.surface,border:"1px solid "+C.border,borderRadius:8,padding:"8px",color:C.t1,fontSize:18,outline:"none",textAlign:"center"}}/>
+                <input value={newName} onChange={e=>setNewName(e.target.value)} placeholder="Category name"
+                  style={{flex:1,background:C.surface,border:"1px solid "+C.border,borderRadius:8,padding:"8px 10px",color:C.t1,fontSize:13,outline:"none"}}/>
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                <input value={newLimit} onChange={e=>setNewLimit(e.target.value)} placeholder="Monthly limit"
+                  type="number" style={{flex:1,background:C.surface,border:"1px solid "+C.border,borderRadius:8,padding:"8px 10px",color:C.t1,fontSize:13,outline:"none"}}/>
+                <span style={{fontSize:13,color:C.t3,flexShrink:0}}>kr / mo</span>
+              </div>
+              <div style={{display:"flex",gap:8,marginTop:2}}>
+                <button onClick={()=>setShowAddForm(false)} style={{flex:1,background:"none",border:"1px solid "+C.border,borderRadius:10,padding:"9px",fontSize:13,color:C.t2,cursor:"pointer"}}>Cancel</button>
+                <button onClick={addCategory} style={{flex:1,background:C.accent,border:"none",borderRadius:10,padding:"9px",fontSize:13,fontWeight:500,color:"#fff",cursor:"pointer"}}>Add</button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <button onClick={()=>setShowAddForm(true)} style={{width:"100%",background:"none",border:"1px dashed "+C.border,borderRadius:14,padding:"13px",fontSize:13,color:C.accent,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+            <span style={{fontSize:16}}>+</span> Add expense category
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  if (spendView === "addExp") {
+    return (
+      <div style={{background:C.bg,minHeight:"100%",color:C.t1,padding:"20px 20px 40px"}}>
+        <div style={{fontSize:13,color:C.t3,marginBottom:20}}>Select a category and enter the amount spent.</div>
+        {/* Category picker */}
+        <div style={{fontSize:13,fontWeight:500,color:C.t3,textTransform:"uppercase",letterSpacing:1,marginBottom:10}}>Category</div>
+        <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:24}}>
+          {allVars.map(cat=>(
+            <div key={cat.name} onClick={()=>setExpCat(cat.name)}
+              style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",borderRadius:14,border:"1px solid "+(expCat===cat.name?cat.color:C.border),background:expCat===cat.name?cat.color+"18":C.card,cursor:"pointer",transition:"all 0.15s"}}>
+              <div style={{width:34,height:34,borderRadius:10,background:cat.color+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,flexShrink:0}}>{cat.icon}</div>
+              <span style={{flex:1,fontSize:13,fontWeight:500,color:C.t1}}>{cat.name}</span>
+              <div style={{width:18,height:18,borderRadius:"50%",border:"2px solid "+(expCat===cat.name?cat.color:C.border),background:expCat===cat.name?cat.color:"none",flexShrink:0}}/>
+            </div>
+          ))}
+        </div>
+        {/* Amount */}
+        <div style={{fontSize:13,fontWeight:500,color:C.t3,textTransform:"uppercase",letterSpacing:1,marginBottom:10}}>Amount</div>
+        <div style={{display:"flex",alignItems:"center",gap:10,background:C.card,border:"1px solid "+C.border,borderRadius:14,padding:"12px 14px",marginBottom:12}}>
+          <input autoFocus={false} value={expAmount} onChange={e=>setExpAmount(e.target.value)} placeholder="0" type="number"
+            style={{flex:1,background:"none",border:"none",outline:"none",fontSize:22,fontWeight:600,color:C.t1}}/>
+          <span style={{fontSize:16,color:C.t3}}>kr</span>
+        </div>
+        {/* Description (optional) */}
+        <div style={{display:"flex",alignItems:"center",gap:10,background:C.card,border:"1px solid "+C.border,borderRadius:14,padding:"12px 14px",marginBottom:24}}>
+          <input value={expDesc} onChange={e=>setExpDesc(e.target.value)} placeholder="Description (optional)"
+            style={{flex:1,background:"none",border:"none",outline:"none",fontSize:13,color:C.t1}}/>
+        </div>
+        <button onClick={submitExpense} disabled={!expCat||!expAmount}
+          style={{width:"100%",background:expCat&&expAmount?C.accent:"rgba(124,111,255,0.3)",border:"none",borderRadius:14,padding:"14px",fontSize:15,fontWeight:500,color:"#fff",cursor:expCat&&expAmount?"pointer":"default"}}>
+          Add expense
+        </button>
+      </div>
+    );
+  }
+
+  // ── Derived values for overview ──
+  const varActual  = allVars.reduce((s,c)=>s+c.actual,0);
+  const varPlanned = allVars.reduce((s,c)=>s+(limits[c.name]||c.planned),0);
+  const varPct     = Math.min(100, Math.round(varActual/varPlanned*100));
+  const overCount  = allVars.filter(c=>c.actual>(limits[c.name]||c.planned)).length;
+  const varBarCol  = overCount>0 ? C.red : varPct>=85 ? C.amber : C.accent;
+  const upcomingFuture = SPEND_UPCOMING.filter(i=>i.day>=daysElapsed).sort((a,b)=>a.day-b.day);
+  const nextItem = upcomingFuture[0];
+
+  const monthName = today.toLocaleDateString("en-SE",{month:"long"});
+  const leftColor = freeAfter > 8000 ? C.green : freeAfter > 2000 ? C.amber : C.red;
+
+  // ── Variable detail ──
+  if (spendView === "variable") {
+    return (
+      <div onClickCapture={saveScroll} style={{background:C.bg,minHeight:"100%",color:C.t1,padding:"20px 20px 40px"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+          <button onClick={()=>onSpendView("manage")} style={{background:"none",border:"none",padding:0,fontSize:13,color:C.accent,cursor:"pointer"}}>Manage →</button>
+          <button onClick={()=>onSpendView("addExp")}
+            style={{width:32,height:32,borderRadius:"50%",background:C.accent,border:"none",color:"#fff",fontSize:18,lineHeight:1,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+        </div>
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          {allVars.map(cat=>{
+            const planned = limits[cat.name]||cat.planned;
+            const status  = getStatus(cat.actual, planned);
+            const barCol  = statusColor(status, cat.color);
+            const pct     = Math.min(100, Math.round((cat.actual/planned)*100));
+            const isAlert = status==="over"||status==="critical";
+            const isWarn  = status==="warn";
+            return (
+              <div key={cat.name} onClick={()=>onSelCat({...cat,planned})}
+                style={{background:C.card,borderRadius:14,border:"1px solid "+(isAlert?barCol+"55":isWarn?barCol+"33":C.border),padding:"12px 14px",cursor:"pointer"}}
+                onMouseEnter={e=>e.currentTarget.style.opacity="0.8"} onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
+                <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:9}}>
+                  <div style={{width:36,height:36,borderRadius:10,background:cat.color+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>{cat.icon}</div>
+                  <span style={{flex:1,fontSize:13,fontWeight:500,color:C.t1}}>{cat.name}</span>
+                  <div style={{textAlign:"right"}}>
+                    <div style={{fontSize:14,fontWeight:600,color:isAlert?barCol:C.t1}}>{fmt(cat.actual)+" kr"}</div>
+                    <div style={{fontSize:13,color:C.t3,marginTop:1}}>{"of "+fmt(planned)+" kr"}</div>
+                    {isAlert && <div style={{fontSize:12,color:barCol,marginTop:1}}>{"Over by "+fmt(cat.actual-planned)+" kr"}</div>}
+                  </div>
+                </div>
+                <div style={{position:"relative",height:5,borderRadius:999,background:C.border}}>
+                  <div style={{position:"absolute",left:0,top:0,height:"100%",width:pct+"%",borderRadius:999,background:barCol,transition:"width 0.4s"}}/>
+                  <div style={{position:"absolute",top:-2,bottom:-2,width:2,borderRadius:999,background:C.t3,left:Math.round(dayPct*100)+"%",opacity:0.5}}/>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Fixed detail ──
+  if (spendView === "fixed") {
+    return (
+      <div style={{background:C.bg,minHeight:"100%",color:C.t1,padding:"20px 20px 40px"}}>
+        <div style={{display:"flex",justifyContent:"flex-end",marginBottom:16}}>
+          <button onClick={onManageFixed} style={{background:"none",border:"none",padding:0,fontSize:13,color:C.accent,cursor:"pointer"}}>Manage →</button>
+        </div>
+        <div style={{background:C.card,borderRadius:14,border:"1px solid "+C.border,overflow:"hidden",marginBottom:20}}>
+          {SPEND_FIXED.map((c,i)=>(
+            <div key={c.name} style={{display:"flex",alignItems:"center",gap:12,padding:"13px 14px",borderBottom:i<SPEND_FIXED.length-1?"1px solid "+C.border:"none"}}>
+              <div style={{width:36,height:36,borderRadius:10,background:c.color+"18",display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,flexShrink:0}}>{c.icon}</div>
+              <div style={{flex:1}}>
+                <div style={{fontSize:13,fontWeight:500,color:C.t1}}>{c.name}</div>
+                <div style={{fontSize:13,color:C.t3}}>{c.sub}</div>
+              </div>
+              <span style={{fontSize:13,fontWeight:500,color:C.t2}}>{fmt(c.amount)+" kr"}</span>
+            </div>
+          ))}
+        </div>
+        {upcomingFuture.length > 0 && <>
+          <div style={{fontSize:13,fontWeight:500,color:C.t3,textTransform:"uppercase",letterSpacing:1,marginBottom:10}}>Coming up</div>
+          <div style={{background:C.card,borderRadius:14,border:"1px solid "+C.border,overflow:"hidden"}}>
+            {upcomingFuture.map((item,i,arr)=>(
+              <div key={item.name} style={{display:"flex",alignItems:"center",gap:12,padding:"11px 14px",borderBottom:i<arr.length-1?"1px solid "+C.border:"none"}}>
+                <div style={{width:32,height:32,borderRadius:9,background:item.color+"18",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,flexShrink:0}}>{item.icon}</div>
+                <div style={{flex:1}}><div style={{fontSize:13,color:C.t1}}>{item.name}</div><div style={{fontSize:13,color:C.t3}}>{"Day "+item.day}</div></div>
+                <span style={{fontSize:13,fontWeight:500,color:C.t2}}>{fmt(item.amount)+" kr"}</span>
+              </div>
+            ))}
+          </div>
+        </>}
+      </div>
+    );
+  }
+
+  // Income allocation percentages for the breakdown bar
+  const fixedSegPct  = Math.round(committedTotal / income * 100);
+  const varSegPct    = Math.round(varActual / income * 100);
+  const savSegPct    = Math.round(savingsMonthly / income * 100);
+  const freeSegPct   = Math.max(0, 100 - fixedSegPct - varSegPct - savSegPct);
+  const segments = [
+    { label:"Fixed",    value:committedTotal, pct:fixedSegPct,  color:"#6366F1" },
+    { label:"Variable", value:varActual,      pct:varSegPct,    color:varBarCol },
+    { label:"Savings",  value:savingsMonthly, pct:savSegPct,    color:C.green },
+    { label:"Free",     value:freeAfter,      pct:freeSegPct,   color:leftColor },
+  ];
+
+  // ── Allocate view ──
+  if (spendView === "allocate") {
+    const destinations = [
+      ...members.filter(m=>m.savingsGoal).map(m=>({
+        id:"goal_"+m.id, icon:m.savingsGoal.emoji, label:m.savingsGoal.name,
+        sub:m.name+" · "+fmt(m.savingsGoal.saved)+" / "+fmt(m.savingsGoal.target)+" kr",
+        color:m.savingsGoal.color, pct:Math.round(m.savingsGoal.saved/m.savingsGoal.target*100),
+        type:"goal"
+      })),
+      { id:"buffer", icon:"🛟", label:"Buffer account", sub:"Joint safety net · "+fmt(buffer.balance)+" kr", color:"#7C6FFF", type:"saving" },
+      { id:"childFund", icon:"🌱", label:childFund.name, sub:fmt(childFund.balance)+" kr saved", color:"#F472B6", type:"saving" },
+      ...(lucasFund?[{ id:"lucasFund", icon:"🌱", label:lucasFund.name, sub:fmt(lucasFund.balance)+" kr saved", color:"#FBBF24", type:"saving" }]:[]),
+      ...loans.map(l=>({ id:"loan_"+l.name, icon:l.icon, label:l.name, sub:"Balance "+fmt(l.amount-l.paid)+" kr · "+l.rate+" · ends "+l.ends, color:l.color, type:"loan" })),
+    ];
+    const amounts = allocAmounts;
+    const setAmounts = setAllocAmounts;
+    const totalAllocated = Object.values(amounts).reduce((s,v)=>s+(parseInt(v)||0),0);
+    const remaining = freeAfter - totalAllocated;
+    const confirm = () => { setAllocAmounts({}); onSpendView(null); };
+    return (
+      <div style={{background:C.bg,minHeight:"100%",color:C.t1,display:"flex",flexDirection:"column"}}>
+        {/* Sticky header */}
+        <div style={{padding:"20px 20px 16px",background:remaining<0?C.redSoft:remaining===0?C.greenSoft:C.accentSoft,borderBottom:"1px solid "+C.border}}>
+          <div style={{fontSize:13,color:C.t2,marginBottom:4}}>Available to allocate</div>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline"}}>
+            <div style={{fontSize:32,fontWeight:700,color:remaining<0?C.red:remaining===0?C.green:C.accent,letterSpacing:-1}}>{fmt(Math.abs(remaining))<0?"-":""}{fmt(Math.abs(remaining))} <span style={{fontSize:15,fontWeight:400,color:C.t3}}>kr {remaining<0?"over":remaining===0?"fully allocated":"left"}</span></div>
+            <div style={{fontSize:13,color:C.t3}}>of {fmt(freeAfter)} kr</div>
+          </div>
+          <div style={{marginTop:10,height:6,borderRadius:999,background:C.border,overflow:"hidden"}}>
+            <div style={{height:"100%",borderRadius:999,background:remaining<0?C.red:remaining===0?C.green:C.accent,width:Math.min(100,Math.round(totalAllocated/freeAfter*100))+"%",transition:"width 0.3s"}}/>
+          </div>
+        </div>
+
+        <div style={{flex:1,overflowY:"auto",padding:"16px 20px 100px"}}>
+          {["goal","saving","loan"].map(type=>{
+            const group = destinations.filter(d=>d.type===type);
+            if (!group.length) return null;
+            const groupLabel = type==="goal"?"Savings goals":type==="saving"?"Savings accounts":"Loans";
+            return (
+              <div key={type} style={{marginBottom:20}}>
+                <div style={{fontSize:12,fontWeight:600,color:C.t3,textTransform:"uppercase",letterSpacing:1,marginBottom:10}}>{groupLabel}</div>
+                <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                  {group.map(d=>(
+                    <div key={d.id} style={{background:C.card,borderRadius:16,border:"1px solid "+C.border,padding:"14px 16px"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:10}}>
+                        <div style={{width:38,height:38,borderRadius:11,background:d.color+"22",border:"1.5px solid "+d.color+"44",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>{d.icon}</div>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontSize:14,fontWeight:500,color:C.t1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{d.label}</div>
+                          <div style={{fontSize:12,color:C.t3,marginTop:1}}>{d.sub}</div>
+                        </div>
+                        {(parseInt(amounts[d.id])||0)>0&&<div style={{fontSize:13,fontWeight:600,color:d.color}}>+{fmt(parseInt(amounts[d.id]))} kr</div>}
+                      </div>
+                      <div style={{display:"flex",alignItems:"center",gap:8}}>
+                        <button onClick={()=>setAmounts(a=>({...a,[d.id]:String(Math.max(0,(parseInt(a[d.id])||0)-100))}))} style={{width:34,height:34,borderRadius:10,background:C.surface,border:"1px solid "+C.border,color:C.t1,fontSize:18,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>−</button>
+                        <div style={{flex:1,display:"flex",alignItems:"center",background:C.surface,border:"1px solid "+C.border,borderRadius:10,padding:"6px 12px"}}>
+                          <input value={amounts[d.id]||""} onChange={e=>setAmounts(a=>({...a,[d.id]:e.target.value}))} placeholder="0" type="number" style={{flex:1,background:"none",border:"none",outline:"none",fontSize:14,fontWeight:500,color:C.t1,minWidth:0}}/>
+                          <span style={{fontSize:13,color:C.t3,flexShrink:0}}>kr</span>
+                        </div>
+                        <button onClick={()=>setAmounts(a=>({...a,[d.id]:String((parseInt(a[d.id])||0)+100)}))} style={{width:34,height:34,borderRadius:10,background:d.color,border:"none",color:"#fff",fontSize:18,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>+</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Sticky confirm */}
+        <div style={{position:"sticky",bottom:0,padding:"12px 20px 24px",background:C.bg,borderTop:"1px solid "+C.border}}>
+          <button onClick={confirm} disabled={totalAllocated===0||remaining<0}
+            style={{width:"100%",background:totalAllocated>0&&remaining>=0?C.accent:C.border,border:"none",borderRadius:14,padding:"14px",fontSize:15,fontWeight:600,color:totalAllocated>0&&remaining>=0?"#fff":C.t3,cursor:totalAllocated>0&&remaining>=0?"pointer":"default",transition:"all 0.2s"}}>
+            {totalAllocated===0?"Select destinations to allocate":remaining<0?"Reduce allocations by "+fmt(Math.abs(remaining))+" kr":"Allocate "+fmt(totalAllocated)+" kr"}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Overview ──
+  return (
+    <div onClickCapture={saveScroll} style={{background:C.bg,minHeight:"100%",color:C.t1}}>
+
+      {/* ── HERO HEADER ── */}
+      <div style={{background:"linear-gradient(160deg,"+C.accent+"28 0%,"+C.accent+"08 55%,"+C.bg+" 100%)",padding:"20px 20px 20px"}}>
+
+        {/* Month row */}
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <div style={{fontSize:15,fontWeight:600,color:C.t1}}>{monthName}</div>
+            <div style={{background:C.border,borderRadius:999,padding:"2px 8px",fontSize:12,color:C.t3}}>{daysLeft+" days left"}</div>
+          </div>
+          <button onClick={()=>onSpendView("addExp")}
+            style={{width:34,height:34,borderRadius:"50%",background:C.accent,border:"none",color:"#fff",fontSize:20,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 4px 12px "+C.accent+"55"}}>+</button>
+        </div>
+
+        {/* Big number row */}
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",marginBottom:16}}>
+          <div>
+            <div style={{fontSize:11,fontWeight:600,color:C.t3,textTransform:"uppercase",letterSpacing:1.2,marginBottom:4}}>Free to spend</div>
+            <div style={{display:"flex",alignItems:"baseline",gap:5}}>
+              <div style={{fontSize:38,fontWeight:700,color:leftColor,lineHeight:1,letterSpacing:-1}}>{fmt(freeAfter)}</div>
+              <div style={{fontSize:15,color:C.t3}}>kr</div>
+            </div>
+          </div>
+          <div style={{textAlign:"right"}}>
+            <div style={{fontSize:11,fontWeight:600,color:C.t3,textTransform:"uppercase",letterSpacing:1.2,marginBottom:4}}>Income</div>
+            {editIncome
+              ? <div style={{display:"flex",alignItems:"center",gap:5,justifyContent:"flex-end"}}>
+                  <input autoFocus value={incomeInput} onChange={e=>setIncomeInput(e.target.value)} type="number"
+                    style={{background:"transparent",border:"none",borderBottom:"1px solid "+C.accent,color:C.t1,fontSize:18,fontWeight:700,outline:"none",width:90,textAlign:"right"}}/>
+                  <button onClick={()=>{setIncome(parseInt(incomeInput)||income);setEditIncome(false);}} style={{background:C.accent,border:"none",borderRadius:6,padding:"3px 8px",color:"#fff",fontSize:13,cursor:"pointer"}}>OK</button>
+                </div>
+              : <button onClick={()=>{setIncomeInput(String(income));setEditIncome(true);}} style={{background:"none",border:"none",padding:0,cursor:"pointer"}}>
+                  <div style={{display:"flex",alignItems:"baseline",gap:4,justifyContent:"flex-end"}}>
+                    <div style={{fontSize:22,fontWeight:700,color:C.t2,lineHeight:1,letterSpacing:-0.5}}>{fmt(income)}</div>
+                    <div style={{fontSize:12,color:C.t3}}>kr ✎</div>
+                  </div>
+                </button>
+            }
+          </div>
+        </div>
+
+        {/* Allocation bar */}
+        <div style={{display:"flex",height:10,borderRadius:999,overflow:"hidden",gap:2,marginBottom:14}}>
+          {segments.map((s,i)=>s.pct>0&&(
+            <div key={i} style={{flex:s.pct,height:"100%",background:s.color,minWidth:4,transition:"flex 0.4s"}}/>
+          ))}
+        </div>
+
+        {/* Allocation stat chips */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
+          {segments.map((s,i)=>(
+            <div key={i} style={{background:C.card,borderRadius:12,padding:"10px 12px",border:"1px solid "+C.border,display:"flex",alignItems:"center",gap:8}}>
+              <div style={{width:8,height:8,borderRadius:"50%",background:s.color,flexShrink:0}}/>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:11,color:C.t3,marginBottom:2}}>{s.label}</div>
+                <div style={{fontSize:14,fontWeight:600,color:s===segments[3]?s.color:C.t1,whiteSpace:"nowrap"}}>{fmt(s.value)+" kr"}</div>
+              </div>
+              <div style={{fontSize:11,color:C.t3,flexShrink:0}}>{s.pct+"%"}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* AI insight card */}
+        {(()=>{
+          const overAmt = allVars.filter(c=>c.actual>(limits[c.name]||c.planned)).reduce((s,c)=>s+(c.actual-(limits[c.name]||c.planned)),0);
+          const overCats = allVars.filter(c=>c.actual>(limits[c.name]||c.planned)).map(c=>c.name).join(" and ");
+          const fixedPctOfIncome = Math.round(committedTotal/income*100);
+          const tip = overCount>0
+            ? "You're over budget on "+overCats+" by "+fmt(overAmt)+" kr. With "+daysLeft+" days left this month, try cutting back on those categories to stay on track and protect your "+fmt(freeAfter)+" kr buffer."
+            : fixedPctOfIncome>50
+            ? "Your fixed costs make up "+fixedPctOfIncome+"% of your income, which limits your flexibility. Consider reviewing subscriptions or recurring expenses to free up more room each month."
+            : freeAfter > income*0.3
+            ? "You're in great shape this month with "+fmt(freeAfter)+" kr free. Consider moving "+fmt(Math.round(freeAfter*0.4))+" kr into your savings goals — you won't miss it and it compounds over time."
+            : savingsMonthly < income*0.15
+            ? "You're currently saving "+savSegPct+"% of your income. Increasing that to 15–20% could mean an extra "+fmt(Math.round(income*0.15-savingsMonthly))+" kr saved each month."
+            : "You're spending at a healthy pace with "+fmt(Math.round(freeAfter/daysLeft))+" kr/day available for the rest of "+monthName+". Keep an eye on variable spending as the month wraps up.";
+          return (
+            <div style={{background:C.accentSoft,border:"1px solid "+C.accent+"35",borderRadius:14,padding:"12px 14px"}}>
+              <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:6}}>
+                <span style={{fontSize:13,color:C.accent}}>✦</span>
+                <div style={{fontSize:12,fontWeight:600,color:C.accent,textTransform:"uppercase",letterSpacing:1}}>AI Insight</div>
+              </div>
+              <div style={{fontSize:13,color:C.t2,lineHeight:1.6}}>{tip}</div>
+            </div>
+          );
+        })()}
+      </div>
+
+      <div style={{padding:"16px 20px 40px",display:"flex",flexDirection:"column",gap:10}}>
+
+        {/* ── VARIABLE SUMMARY CARD ── */}
+        <div onClick={()=>onSpendView("variable")}
+          style={{background:C.card,borderRadius:16,border:"1px solid "+(overCount>0?varBarCol+"55":C.border),padding:"16px",cursor:"pointer"}}
+          onMouseEnter={e=>e.currentTarget.style.opacity="0.85"} onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
+            <div>
+              <div style={{fontSize:14,fontWeight:600,color:C.t1,marginBottom:3}}>Variable spending</div>
+              <div style={{fontSize:12,color:C.t3}}>{allVars.length+" categories · "+monthName}</div>
+            </div>
+            <div style={{textAlign:"right"}}>
+              <div style={{fontSize:18,fontWeight:700,color:overCount>0?varBarCol:C.t1}}>{fmt(varActual)+" kr"}</div>
+              <div style={{fontSize:12,color:C.t3,marginTop:1}}>{"of "+fmt(varPlanned)+" kr"}</div>
+            </div>
+          </div>
+          <div style={{position:"relative",height:7,borderRadius:999,background:C.border,marginBottom:10}}>
+            <div style={{position:"absolute",left:0,top:0,height:"100%",width:varPct+"%",borderRadius:999,background:varBarCol,transition:"width 0.4s"}}/>
+            <div style={{position:"absolute",top:-3,bottom:-3,width:2,borderRadius:999,background:C.t3,left:Math.round(dayPct*100)+"%",opacity:0.5}}/>
+          </div>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div style={{display:"flex",gap:4}}>
+              {allVars.slice(0,5).map(c=>(
+                <div key={c.name} title={c.name} style={{width:22,height:22,borderRadius:6,background:c.color+"22",border:"1.5px solid "+c.color+"55",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11}}>{c.icon}</div>
+              ))}
+            </div>
+            <div style={{display:"flex",alignItems:"center",gap:6}}>
+              {overCount>0&&<span style={{fontSize:12,color:varBarCol,fontWeight:500}}>{overCount+" over"}</span>}
+              <div style={{fontSize:13,color:C.accent}}>Details →</div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── FIXED SUMMARY CARD ── */}
+        <div onClick={()=>onSpendView("fixed")}
+          style={{background:C.card,borderRadius:16,border:"1px solid "+C.border,padding:"16px",cursor:"pointer"}}
+          onMouseEnter={e=>e.currentTarget.style.opacity="0.85"} onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
+            <div>
+              <div style={{fontSize:14,fontWeight:600,color:C.t1,marginBottom:3}}>Fixed costs</div>
+              <div style={{fontSize:12,color:C.t3}}>{SPEND_FIXED.length+" recurring · every month"}</div>
+            </div>
+            <div style={{textAlign:"right"}}>
+              <div style={{fontSize:18,fontWeight:700,color:C.t1}}>{fmt(committedTotal)+" kr"}</div>
+              <div style={{fontSize:12,color:C.t3,marginTop:1}}>per month</div>
+            </div>
+          </div>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            {nextItem
+              ? <div style={{display:"flex",alignItems:"center",gap:6,background:C.accentSoft,borderRadius:20,padding:"4px 10px"}}>
+                  <span style={{fontSize:13}}>{nextItem.icon}</span>
+                  <span style={{fontSize:12,color:C.accent}}>{nextItem.name+" · day "+nextItem.day+" · "+fmt(nextItem.amount)+" kr"}</span>
+                </div>
+              : <div style={{fontSize:12,color:C.t3}}>No upcoming payments</div>
+            }
+            <div style={{fontSize:13,color:C.accent,flexShrink:0,marginLeft:8}}>Details →</div>
+          </div>
+        </div>
+
+        {/* ── FREE TO ALLOCATE ── */}
+        <div onClick={()=>onSpendView("allocate")} style={{background:leftColor+"14",borderRadius:16,border:"1px solid "+leftColor+"33",padding:"16px",display:"flex",alignItems:"center",gap:12,cursor:"pointer"}} onMouseEnter={e=>e.currentTarget.style.opacity="0.85"} onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
+          <div style={{width:42,height:42,borderRadius:12,background:leftColor+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>✨</div>
+          <div style={{flex:1}}>
+            <div style={{fontSize:14,fontWeight:600,color:C.t1}}>Free to allocate</div>
+            <div style={{fontSize:12,color:C.t3,marginTop:2}}>{daysLeft>5?"Best done at month end · "+daysLeft+" days left":"Ready to allocate"}</div>
+          </div>
+          <div style={{textAlign:"right"}}>
+            <div style={{fontSize:20,fontWeight:700,color:leftColor}}>{fmt(freeAfter)}</div>
+            <div style={{fontSize:12,color:C.accent}}>Allocate →</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
+function ExpenseReport({ onBack, scrollContainerRef=null }) {
   const months=Object.keys(EXPENSE_DATA);
   const [selMonth,setSelMonth]=useState(months[0]);
   const [selCat,setSelCat]=useState(null);
   const [activeIdx,setActiveIdx]=useState(null);
+  const saveScroll = useScrollRestore(scrollContainerRef, !!selCat);
   const data=EXPENSE_DATA[selMonth];
   const maxTotal=Math.max(...Object.values(EXPENSE_DATA).map(d=>d.total));
   const handleSlice=i=>{setActiveIdx(i);setTimeout(()=>setSelCat(data.categories[i]),180);};
@@ -1388,7 +2451,7 @@ function ExpenseReport({ onBack }) {
           <div style={{background:C.card,borderRadius:16,border:"1px solid "+C.border,overflow:"hidden"}}>
             {txs.map((tx,i)=>(
               <div key={i} style={{display:"flex",alignItems:"center",gap:12,padding:"13px 16px",borderBottom:i<txs.length-1?"1px solid "+C.border:"none"}}>
-                <div style={{flex:1}}><div style={{fontSize:14,fontWeight:500,color:C.t1}}>{tx.merchant}</div>              <div style={{fontSize:11,color:C.t3}}>{tx.member+" - "+tx.date}</div></div>
+                <div style={{flex:1}}><div style={{fontSize:14,fontWeight:500,color:C.t1}}>{tx.merchant}</div>              <div style={{fontSize:13,color:C.t3}}>{tx.member+" - "+tx.date}</div></div>
                 <div style={{fontSize:14,fontWeight:500,color:C.red}}>{tx.amount.toLocaleString("sv-SE")+" kr"}</div>
               </div>
             ))}
@@ -1398,7 +2461,7 @@ function ExpenseReport({ onBack }) {
     );
   }
   return (
-    <div style={{background:C.bg,minHeight:"100%",color:C.t1}}>
+    <div onClickCapture={saveScroll} style={{background:C.bg,minHeight:"100%",color:C.t1}}>
       <div style={{background:C.surface,padding:"20px 20px 24px",borderBottom:"1px solid "+C.border}}>
         <div style={{fontSize:20,fontWeight:500}}>Expense Wheel</div>
       </div>
@@ -1413,19 +2476,19 @@ function ExpenseReport({ onBack }) {
           <div style={{flex:1,display:"flex",flexDirection:"column",gap:8}}>
             {data.categories.map((cat,i)=>(
               <div key={i} onClick={()=>handleSlice(i)} onMouseEnter={()=>setActiveIdx(i)} onMouseLeave={()=>setActiveIdx(null)} style={{display:"flex",alignItems:"center",gap:7,cursor:"pointer",opacity:activeIdx!==null&&activeIdx!==i?0.45:1}}>
-                <div style={{width:7,height:7,borderRadius:"50%",background:cat.color,flexShrink:0}}/><span style={{fontSize:11,color:C.t2,flex:1}}>{cat.name}</span><span style={{fontSize:11,fontWeight:500,color:C.t1}}>{fmt(cat.amount)}</span>
+                <div style={{width:7,height:7,borderRadius:"50%",background:cat.color,flexShrink:0}}/><span style={{fontSize:13,color:C.t2,flex:1}}>{cat.name}</span><span style={{fontSize:13,fontWeight:500,color:C.t1}}>{fmt(cat.amount)}</span>
               </div>
             ))}
           </div>
         </div>
         <div style={{background:C.card,borderRadius:18,border:"1px solid "+C.border,padding:"18px 20px"}}>
-          <div style={{fontSize:11,color:C.t3,textTransform:"uppercase",letterSpacing:1,marginBottom:16}}>3-month trend</div>
+          <div style={{fontSize:13,color:C.t3,textTransform:"uppercase",letterSpacing:1,marginBottom:16}}>3-month trend</div>
           <div style={{display:"flex",alignItems:"flex-end",gap:12,height:110}}>
             {Object.entries(EXPENSE_DATA).map(([month,d])=>{const barH=Math.round((d.total/maxTotal)*80),active=month===selMonth;return(
               <div key={month} onClick={()=>setSelMonth(month)} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:6,cursor:"pointer"}}>
-                <div style={{fontSize:11,color:active?C.accent:C.t3}}>{fmt(d.total)}</div>
+                <div style={{fontSize:13,color:active?C.accent:C.t3}}>{fmt(d.total)}</div>
                 <div style={{width:"100%",height:barH,borderRadius:"6px 6px 0 0",background:active?C.accent:"rgba(124,111,255,0.25)"}}/>
-                <div style={{fontSize:11,color:active?C.accent:C.t3}}>{month.split(" ")[0]}</div>
+                <div style={{fontSize:13,color:active?C.accent:C.t3}}>{month.split(" ")[0]}</div>
               </div>
             );})}
           </div>
@@ -1442,7 +2505,7 @@ function ManageLimits({ members, totalCredit, onBack }) {
     if(sum!==totalCredit){const ratio=totalCredit/sum;const fixed={};let running=0;members.forEach((m,i)=>{if(i===members.length-1){fixed[m.id]=totalCredit-running;}else{const v=Math.round(init[m.id]*ratio/500)*500;fixed[m.id]=v;running+=v;}});return fixed;}
     return init;
   });
-  const [locked,setLocked]=useState(()=>members.reduce((acc,m)=>({...acc,[m.id]:false}),{}));
+  const [locked,setLocked]=useState(()=>members.reduce((acc,m)=>({...acc,[m.id]:m.role==="Child"}),{}));
   const [saved,setSaved]=useState(false);
   const totalAssigned=Object.values(limits).reduce((a:number,b:number)=>a+b,0);
   const upd=(id,val)=>{
@@ -1461,9 +2524,6 @@ function ManageLimits({ members, totalCredit, onBack }) {
   const setSplitLimits=(next)=>{setLimits(next);setSaved(false);};
   return (
     <div style={{background:C.bg,minHeight:"100%",color:C.t1}}>
-      <div style={{background:C.surface,padding:"20px 20px 24px",borderBottom:"1px solid "+C.border}}>
-        <div style={{fontSize:20,fontWeight:500}}>Manage limits</div>
-      </div>
       <div style={{padding:"20px 20px 40px"}}>
         <div style={{background:C.card,borderRadius:18,border:"1px solid "+C.border,padding:"18px 20px",marginBottom:16}}>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
@@ -1473,14 +2533,14 @@ function ManageLimits({ members, totalCredit, onBack }) {
           <div style={{display:"flex",height:8,borderRadius:999,overflow:"hidden",marginBottom:10}}>
             {members.map(m=><div key={m.id} style={{width:Math.round((limits[m.id]/totalCredit)*100)+"%",background:m.color,transition:"width 0.3s"}}/>)}
           </div>
-          <div style={{display:"flex",gap:12,flexWrap:"wrap",marginTop:6}}>{members.map(m=><div key={m.id} style={{display:"flex",alignItems:"center",gap:5,fontSize:11,color:C.t3}}><div style={{width:8,height:8,borderRadius:"50%",background:m.color}}/>{m.name.split(" ")[0]+" "+Math.round(limits[m.id]/totalCredit*100)+"%"}</div>)}</div>
+          <div style={{display:"flex",gap:12,flexWrap:"wrap",marginTop:6}}>{members.map(m=><div key={m.id} style={{display:"flex",alignItems:"center",gap:5,fontSize:13,color:C.t3}}><div style={{width:8,height:8,borderRadius:"50%",background:m.color}}/>{m.name.split(" ")[0]+" "+Math.round(limits[m.id]/totalCredit*100)+"%"}</div>)}</div>
         </div>
         <div style={{background:C.card,borderRadius:18,border:"1px solid "+C.border,padding:"18px 20px",marginBottom:16}}>
           {members.map((m,i)=>{const pct=limits[m.id]>0?Math.round((m.spendMonth/limits[m.id])*100):0;return(
             <div key={m.id} style={{marginBottom:i<members.length-1?24:0}}>
               <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:10}}>
                 <Avatar m={m} size={36}/>
-                <div style={{flex:1}}><div style={{fontSize:13,fontWeight:500,color:C.t1}}>{m.name}</div><div style={{fontSize:11,color:C.t3}}>{pct+"% used"}</div></div>
+                <div style={{flex:1}}><div style={{fontSize:13,fontWeight:500,color:C.t1}}>{m.name}</div><div style={{fontSize:13,color:C.t3}}>{pct+"% used"}</div></div>
                 <div style={{fontSize:18,fontWeight:500,color:m.color}}>{fmt(limits[m.id])+" kr"}</div>
                 <button onClick={()=>{setLocked(l=>({...l,[m.id]:!l[m.id]}));}} style={{background:locked[m.id]?"rgba(251,191,36,0.15)":"rgba(255,255,255,0.05)",border:"1px solid "+(locked[m.id]?C.amber+"55":C.border),borderRadius:8,width:30,height:30,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",flexShrink:0}}>
                   <LockIcon locked={locked[m.id]}/>
@@ -1496,24 +2556,53 @@ function ManageLimits({ members, totalCredit, onBack }) {
   );
 }
 
-function AutoSaveSettings({ members, buffer, childFund, onBack }) {
+function AutoSaveSettings({ members, buffer, childFund, lucasFund=null, summerHoliday=null, onBack }) {
   const bufEntry={id:"buffer",name:"Buffer account",color:"#7C6FFF",colorSoft:"rgba(124,111,255,0.18)",role:"buffer"};
-  const cgEntry={id:"cg",name:"Maja's 0-18 fund",color:"#F472B6",colorSoft:"rgba(244,114,182,0.18)",role:"cg"};
-  const allT=[bufEntry,cgEntry,...members];
-  const [pct,setPct]=useState(5);
+  const cgEntry={id:"cg",name:childFund.name,color:"#F472B6",colorSoft:"rgba(244,114,182,0.18)",role:"cg"};
+  const lcgEntry=lucasFund?{id:"lcg",name:lucasFund.name,color:"#FBBF24",colorSoft:"rgba(251,191,36,0.18)",role:"lcg"}:null;
+  const shEntry=summerHoliday?{id:"sh",name:summerHoliday.name,color:summerHoliday.color,colorSoft:summerHoliday.color+"22",role:"sh"}:null;
+  const allT=[bufEntry,cgEntry,...(lcgEntry?[lcgEntry]:[]),...(shEntry?[shEntry]:[]),...members];
+  const [pct,setPct]=useState(2);
   const [saved,setSaved]=useState(false);
+  const [disabled,setDisabled]=useState(()=>allT.reduce((acc,m)=>({...acc,[m.id]:false}),{}));
+  const activeT=allT.filter(m=>!disabled[m.id]);
   const [splits,setSplits]=useState(()=>{const eq=Math.floor(100/allT.length),rem=100-eq*allT.length;return allT.reduce((acc,m,i)=>({...acc,[m.id]:eq+(i===0?rem:0)}),{});});
   const [locked,setLocked]=useState(()=>allT.reduce((acc,m)=>({...acc,[m.id]:false}),{}));
-  const total=Object.values(splits).reduce((a,b)=>a+b,0);
-  const upd=(id,val)=>{
-    const others=allT.filter(m=>m.id!==id&&!locked[m.id]);
+  const total=activeT.reduce((a,m)=>a+splits[m.id],0);
+  const toggleDisabled=(id:any)=>{
+    const nowDisabled=!disabled[id];
+    const newDisabled={...disabled,[id]:nowDisabled};
+    const newActive=allT.filter(m=>!newDisabled[m.id]);
+    if(!newActive.length){return;}// keep at least one
+    const next={...splits};
+    if(nowDisabled){
+      // give this entry's share to others proportionally
+      const share=next[id];next[id]=0;
+      const others=newActive.filter(m=>!locked[m.id]);
+      if(others.length){const oT=others.reduce((s,m)=>s+next[m.id],0);others.forEach(m=>{next[m.id]+=oT>0?Math.round((next[m.id]/oT)*share):Math.floor(share/others.length);});}
+      const diff=100-newActive.reduce((a,m)=>a+next[m.id],0);
+      if(diff!==0&&others.length)next[others[0].id]+=diff;
+    } else {
+      // take equal share from active unlocked
+      const eq=Math.floor(100/newActive.length);next[id]=eq;
+      const others=newActive.filter(m=>m.id!==id&&!locked[m.id]);
+      const lT=newActive.filter(m=>m.id!==id&&locked[m.id]).reduce((s,m)=>s+next[m.id],0);
+      const rem=100-eq-lT;const oT=others.reduce((s,m)=>s+next[m.id],0);
+      if(others.length){others.forEach(m=>{next[m.id]=oT>0?Math.round((next[m.id]/oT)*rem):Math.floor(rem/others.length);});}
+      const diff=100-newActive.reduce((a,m)=>a+next[m.id],0);
+      if(diff!==0&&others.length)next[others[0].id]+=diff;
+    }
+    setSplits(next);setDisabled(newDisabled);setSaved(false);
+  };
+  const upd=(id:any,val:number)=>{
+    const others=activeT.filter(m=>m.id!==id&&!locked[m.id]);
     if(!others.length)return;
-    const lT=allT.filter(m=>m.id!==id&&locked[m.id]).reduce((s,m)=>s+splits[m.id],0);
+    const lT=activeT.filter(m=>m.id!==id&&locked[m.id]).reduce((s,m)=>s+splits[m.id],0);
     const maxVal=100-lT;
     const c=Math.min(maxVal,Math.max(0,val)),rem=Math.max(0,100-c-lT),oT=others.reduce((s,m)=>s+splits[m.id],0),next={...splits,[id]:c};
     if(oT===0){const each=Math.floor(rem/others.length);others.forEach((m,i)=>{next[m.id]=each+(i===0?rem-each*others.length:0);});}
     else{others.forEach(m=>{next[m.id]=Math.round((splits[m.id]/oT)*rem);});}
-    const diff=100-Object.values(next).reduce((a,b)=>a+b,0);
+    const diff=100-activeT.reduce((a,m)=>a+next[m.id],0);
     if(diff!==0){const adj=others.sort((a,b)=>next[b.id]-next[a.id]);adj[0]&&(next[adj[0].id]+=diff);}
     setSplits(next);setSaved(false);
   };
@@ -1533,14 +2622,14 @@ function AutoSaveSettings({ members, buffer, childFund, onBack }) {
             <div style={{fontSize:12,color:C.t3,marginBottom:6}}>per purchase</div>
           </div>
           <input type="range" min="1" max="20" step="1" value={pct} onChange={e=>{setPct(Number(e.target.value));setSaved(false);}} style={{width:"100%",accentColor:C.accent,marginBottom:16}}/>
-          <div style={{fontSize:11,fontWeight:500,color:C.t3,textTransform:"uppercase",letterSpacing:1,marginBottom:10}}>Recent purchases</div>
+          <div style={{fontSize:13,fontWeight:500,color:C.t3,textTransform:"uppercase",letterSpacing:1,marginBottom:10}}>Recent purchases</div>
           {recentTxs.map((tx,i)=>(
             <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:i<recentTxs.length-1?"1px solid "+C.border:"none"}}>
               <div style={{width:32,height:32,borderRadius:9,background:"rgba(255,255,255,0.06)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,flexShrink:0}}>{tx.icon}</div>
-              <div style={{flex:1}}><div style={{fontSize:13,color:C.t1}}>{tx.merchant}</div><div style={{fontSize:11,color:C.t3}}>{tx.amount+" kr"}</div></div>
+              <div style={{flex:1}}><div style={{fontSize:13,color:C.t1}}>{tx.merchant}</div><div style={{fontSize:13,color:C.t3}}>{tx.amount+" kr"}</div></div>
               <div style={{textAlign:"right"}}>
                 <div style={{fontSize:13,fontWeight:500,color:C.green}}>{"+"+String(Math.round(tx.amount*pct/100))+" kr"}</div>
-                <div style={{fontSize:10,color:C.t3}}>saved</div>
+                <div style={{fontSize:12,color:C.t3}}>saved</div>
               </div>
             </div>
           ))}
@@ -1550,26 +2639,33 @@ function AutoSaveSettings({ members, buffer, childFund, onBack }) {
             <div style={{fontSize:14,fontWeight:500,color:C.t1}}>Split between goals</div>
             <div style={{fontSize:13,fontWeight:600,color:total===100?C.green:C.amber}}>{total+"%"}{total===100?" ✓":""}</div>
           </div>
-          <div style={{display:"flex",height:10,borderRadius:999,overflow:"hidden",marginBottom:18}}>{allT.map(m=><div key={m.id} style={{width:splits[m.id]+"%",background:m.color,transition:"width 0.2s"}}/>)}</div>
-          {allT.map(m=>(
-            <div key={m.id} style={{marginBottom:20}}>
-              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
+          <div style={{display:"flex",height:10,borderRadius:999,overflow:"hidden",marginBottom:18}}>{activeT.map(m=><div key={m.id} style={{width:splits[m.id]+"%",background:m.color,transition:"width 0.2s"}}/>)}</div>
+          {allT.map(m=>{
+            const isOff=disabled[m.id];
+            return(
+            <div key={m.id} style={{marginBottom:16,opacity:isOff?0.45:1,transition:"opacity 0.2s"}}>
+              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:isOff?0:8}}>
                 {m.id==="buffer"
                   ? <div style={{width:32,height:32,borderRadius:"50%",background:"rgba(124,111,255,0.2)",border:"2px solid #7C6FFF",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>🛟</div>
                   : m.id==="cg"
                   ? <div style={{width:32,height:32,borderRadius:"50%",background:"rgba(244,114,182,0.2)",border:"2px solid #F472B6",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>🌱</div>
+                  : m.id==="lcg"
+                  ? <div style={{width:32,height:32,borderRadius:"50%",background:"rgba(251,191,36,0.2)",border:"2px solid #FBBF24",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>🌱</div>
+                  : m.id==="sh"
+                  ? <div style={{width:32,height:32,borderRadius:10,background:m.colorSoft,border:"2px solid "+m.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>{summerHoliday?.emoji||"🌴"}</div>
                   : <Avatar m={m} size={32}/>
                 }
-                <div style={{flex:1}}><div style={{fontSize:13,fontWeight:500,color:C.t1}}>{m.name}</div></div>
-                <div style={{fontSize:18,fontWeight:500,color:m.color,marginRight:8}}>{splits[m.id]+"%"}</div>
-                <button onClick={()=>{setLocked(l=>({...l,[m.id]:!l[m.id]}));setSaved(false);}} style={{background:locked[m.id]?"rgba(251,191,36,0.15)":"rgba(255,255,255,0.05)",border:"1px solid "+(locked[m.id]?C.amber+"55":C.border),borderRadius:8,width:30,height:30,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",flexShrink:0}}>
-                  <LockIcon locked={locked[m.id]}/>
+                <div style={{flex:1}}><div style={{fontSize:13,fontWeight:500,color:C.t1}}>{m.name}</div>{isOff&&<div style={{fontSize:11,color:C.t3}}>Excluded from auto-save</div>}</div>
+                {!isOff&&<div style={{fontSize:18,fontWeight:500,color:m.color,marginRight:4}}>{splits[m.id]+"%"}</div>}
+                {!isOff&&<button onClick={()=>{setLocked(l=>({...l,[m.id]:!l[m.id]}));setSaved(false);}} style={{background:locked[m.id]?"rgba(251,191,36,0.15)":"rgba(255,255,255,0.05)",border:"1px solid "+(locked[m.id]?C.amber+"55":C.border),borderRadius:8,width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",flexShrink:0}}><LockIcon locked={locked[m.id]}/></button>}
+                <button onClick={()=>toggleDisabled(m.id)} title={isOff?"Include in auto-save":"Exclude from auto-save"} style={{background:isOff?"rgba(255,255,255,0.06)":"rgba(239,68,68,0.1)",border:"1px solid "+(isOff?C.border:"rgba(239,68,68,0.3)"),borderRadius:8,width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",flexShrink:0,fontSize:13}}>
+                  {isOff?"＋":"✕"}
                 </button>
               </div>
-              <input type="range" min="0" max="100" step="1" value={splits[m.id]} onChange={e=>{if(!locked[m.id])upd(m.id,Number(e.target.value));}} disabled={locked[m.id]} style={{width:"100%",accentColor:m.color,opacity:locked[m.id]?0.4:1}}/>
+              {!isOff&&<input type="range" min="0" max="100" step="1" value={splits[m.id]} onChange={e=>{if(!locked[m.id])upd(m.id,Number(e.target.value));}} disabled={locked[m.id]} style={{width:"100%",accentColor:m.color,opacity:locked[m.id]?0.4:1}}/>}
             </div>
-          ))}
-          {total!==100&&<div style={{background:C.amberSoft,border:"1px solid "+C.amber+"44",borderRadius:10,padding:"8px 12px",fontSize:12,color:C.amber}}>{"Total is "+total+"% — adjust to reach 100%"}</div>}
+          );})}
+          {total!==100&&activeT.length>0&&<div style={{background:C.amberSoft,border:"1px solid "+C.amber+"44",borderRadius:10,padding:"8px 12px",fontSize:12,color:C.amber}}>{"Total is "+total+"% — adjust to reach 100%"}</div>}
         </div>
         <button onClick={()=>{if(total===100)setSaved(true);}} disabled={total!==100} style={{width:"100%",background:saved?C.greenSoft:total!==100?"rgba(255,255,255,0.08)":C.accent,border:saved?"1px solid "+C.green+"55":"none",borderRadius:12,padding:14,fontSize:14,fontWeight:500,color:saved?C.green:total!==100?C.t3:"#fff",cursor:total===100?"pointer":"not-allowed",opacity:total!==100?0.6:1}}>{saved?"Saved":total!==100?"Total must be 100% (now "+total+"%)":"Save settings"}</button>
       </div>
@@ -1577,11 +2673,13 @@ function AutoSaveSettings({ members, buffer, childFund, onBack }) {
   );
 }
 
-function ChildFund({ members, fund, onBack, onDeposit }) {
+function ChildFund({ members, fund, onBack, onDeposit, onAutoSaveSettings=null }) {
   const adults=members.filter(m=>fund.members.includes(m.id));
-  const maja=members.find(m=>m.role==="Child");
-  const ageNow=new Date().getFullYear()-fund.startYear;
+  const maja=members.find(m=>m.id===fund.childId)||members.find(m=>m.role==="Child");
+  const ageNow=maja?.age||(new Date().getFullYear()-fund.startYear);
   const yearsLeft=fund.endYear-new Date().getFullYear();
+  const cbMonthly=1250;
+  const estimatedAt18=Math.round(fund.balance+fund.monthly*12*yearsLeft);
   const [tab,setTab]=useState("overview");
   const [showDep,setShowDep]=useState(false);
   const [amt,setAmt]=useState("");
@@ -1597,9 +2695,9 @@ function ChildFund({ members, fund, onBack, onDeposit }) {
         <div style={{position:"absolute",bottom:0,left:0,right:0,padding:"0 20px 20px"}}>
           <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:4}}>
             <span style={{fontSize:28}}>🌱</span>
-            <div style={{fontSize:22,fontWeight:600,color:C.t1}}>{"Maja's 0–18 fund"}</div>
+            <div style={{fontSize:22,fontWeight:600,color:C.t1}}>{fund.name}</div>
           </div>
-          <div style={{fontSize:11,color:C.t3}}>{"Long-term savings - Age "+ageNow+" of 18"}</div>
+          <div style={{fontSize:13,color:C.t3}}>{"Long-term savings · Age "+ageNow+" of 18"}</div>
         </div>
       </div>
       <div style={{padding:"0 20px 40px"}}>
@@ -1612,19 +2710,31 @@ function ChildFund({ members, fund, onBack, onDeposit }) {
           </div>
           {showDep&&(<div style={{marginTop:12}}><div style={{display:"flex",gap:8,marginBottom:8}}>{adults.map(m=><button key={m.id} onClick={()=>setDepM(m.id)} style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:6,background:depM===m.id?"rgba(244,114,182,0.15)":"rgba(255,255,255,0.04)",border:"1px solid "+(depM===m.id?"rgba(244,114,182,0.4)":C.border),borderRadius:10,padding:"8px 0",cursor:"pointer"}}><Avatar m={m} size={20}/><span style={{fontSize:12,color:depM===m.id?"#F472B6":C.t2}}>{m.name}</span></button>)}</div><div style={{display:"flex",gap:8}}><input value={amt} onChange={e=>setAmt(e.target.value)} placeholder="Amount (kr)" type="number" style={{flex:1,background:"rgba(255,255,255,0.05)",border:"1px solid "+C.border,borderRadius:10,padding:"9px 12px",fontSize:14,color:C.t1,outline:"none"}}/><button onClick={handleDep} style={{background:"#F472B6",border:"none",borderRadius:10,padding:"9px 16px",fontSize:14,fontWeight:500,color:"#fff",cursor:"pointer"}}>Add</button></div></div>)}
         </div>
+        {fund.desc&&<div style={{background:C.card,borderRadius:16,border:"1px solid "+C.border,padding:"16px 18px",marginBottom:16}}>
+          <div style={{fontSize:12,fontWeight:600,color:C.t3,letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:8}}>About this fund</div>
+          <div style={{fontSize:14,color:C.t2,lineHeight:1.6}}>{fund.desc}</div>
+        </div>}
+        {fund.agreement&&<FamilyAgreementCard agreement={fund.agreement} members={adults}/>}
         <div style={{background:C.card,borderRadius:16,border:"1px solid "+C.border}}>
           <div style={{display:"flex",borderBottom:"1px solid "+C.border}}>{["overview","history"].map(t=><button key={t} onClick={()=>setTab(t)} style={{flex:1,background:"none",border:"none",color:tab===t?"#F472B6":C.t3,borderBottom:tab===t?"2px solid #F472B6":"2px solid transparent",padding:"12px 0",fontSize:13,fontWeight:tab===t?500:400,cursor:"pointer",textTransform:"capitalize"}}>{t}</button>)}</div>
-          {tab==="overview"&&[{icon:"📅",label:"Monthly contribution",sub:"From both parents",val:fmt(fund.monthly)+" kr"},{icon:"🎂",label:"Estimated at 18",sub:"Year "+fund.endYear,val:"~"+fmt(Math.round(fund.balance+fund.monthly*12*yearsLeft))+" kr"},{icon:"📈",label:"Years remaining",sub:"Until payout",val:yearsLeft+" yrs"}].map((row,i,arr)=>(
-            <div key={i} style={{display:"flex",alignItems:"center",gap:14,padding:"14px 16px",borderBottom:i<arr.length-1?"1px solid "+C.border:"none"}}><span style={{fontSize:20,width:32,textAlign:"center"}}>{row.icon}</span><span style={{flex:1}}><span style={{display:"block",fontSize:13,fontWeight:500,color:C.t1}}>{row.label}</span><span style={{display:"block",fontSize:11,color:C.t3}}>{row.sub}</span></span><span style={{fontSize:13,fontWeight:500,color:C.t1}}>{row.val}</span></div>
-          ))}
-          {tab==="history"&&fund.transactions.map((tx,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 16px",borderBottom:i<fund.transactions.length-1?"1px solid "+C.border:"none"}}><div><div style={{fontSize:13,fontWeight:500,color:C.t1}}>{tx.desc}</div><div style={{fontSize:11,color:C.t3}}>{tx.date}</div></div><span style={{fontSize:14,fontWeight:500,color:tx.amount>0?C.green:C.red}}>{(tx.amount>0?"+":"")+fmt(tx.amount)+" kr"}</span></div>)}
+          {tab==="overview"&&<>
+            {[{icon:"📅",label:"Monthly contribution",sub:"Parents + child benefit",val:fmt(fund.monthly)+" kr"},{icon:"🎂",label:"Estimated at 18",sub:"Year "+fund.endYear,val:"~"+fmt(estimatedAt18)+" kr"},{icon:"📈",label:"Years remaining",sub:"Until payout",val:yearsLeft+" yrs"}].map((row,i)=>(
+              <div key={i} style={{display:"flex",alignItems:"center",gap:14,padding:"14px 16px",borderBottom:"1px solid "+C.border}}><span style={{fontSize:20,width:32,textAlign:"center"}}>{row.icon}</span><span style={{flex:1}}><span style={{display:"block",fontSize:13,fontWeight:500,color:C.t1}}>{row.label}</span><span style={{display:"block",fontSize:13,color:C.t3}}>{row.sub}</span></span><span style={{fontSize:13,fontWeight:500,color:C.t1}}>{row.val}</span></div>
+            ))}
+            <button onClick={onAutoSaveSettings||undefined} style={{width:"100%",background:"none",border:"none",display:"flex",alignItems:"center",gap:14,padding:"14px 16px",cursor:onAutoSaveSettings?"pointer":"default",textAlign:"left"}}>
+              <span style={{fontSize:20,width:32,textAlign:"center",flexShrink:0}}>🔄</span>
+              <span style={{flex:1}}><span style={{display:"block",fontSize:13,fontWeight:500,color:C.t1}}>Auto-save</span><span style={{display:"block",fontSize:13,color:C.t3}}>Active on every purchase</span></span>
+              {onAutoSaveSettings&&<span style={{fontSize:13,color:C.t3}}>›</span>}
+            </button>
+          </>}
+          {tab==="history"&&fund.transactions.map((tx,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 16px",borderBottom:i<fund.transactions.length-1?"1px solid "+C.border:"none"}}><div><div style={{fontSize:13,fontWeight:500,color:C.t1}}>{tx.desc}</div><div style={{fontSize:13,color:C.t3}}>{tx.date}</div></div><span style={{fontSize:14,fontWeight:500,color:tx.amount>0?C.green:C.red}}>{(tx.amount>0?"+":"")+fmt(tx.amount)+" kr"}</span></div>)}
         </div>
       </div>
     </div>
   );
 }
 
-function BufferAccount({ members, buffer, onBack, onDeposit, onWithdraw }) {
+function BufferAccount({ members, buffer, onBack, onDeposit, onWithdraw, onAutoSaveSettings=null }) {
   const adults=members.filter(m=>buffer.members.includes(m.id));
   const [tab,setTab]=useState("overview");
   const [showDep,setShowDep]=useState(false);
@@ -1634,6 +2744,7 @@ function BufferAccount({ members, buffer, onBack, onDeposit, onWithdraw }) {
   const [depM,setDepM]=useState(adults[0]?.id);
   const hDep=()=>{const a=parseInt(depAmt,10);if(!a||a<=0)return;onDeposit(a);setDepAmt("");setShowDep(false);};
   const hWith=()=>{const a=parseInt(withAmt,10);if(!a||a<=0)return;onWithdraw(a);setWithAmt("");setShowWith(false);};
+  const [showInsight,setShowInsight]=useState(false);
   return (
     <div style={{background:C.bg,minHeight:"100%",color:C.t1}}>
       <div style={{position:"relative",overflow:"hidden"}}>
@@ -1646,7 +2757,7 @@ function BufferAccount({ members, buffer, onBack, onDeposit, onWithdraw }) {
             <span style={{fontSize:28}}>🛟</span>
             <div style={{fontSize:22,fontWeight:600,color:C.t1}}>Buffer account</div>
           </div>
-          <div style={{fontSize:11,color:C.t3}}>{"Shared by "+adults.map(m=>m.name).join(" and ")}</div>
+          <div style={{fontSize:13,color:C.t3}}>{"Shared by "+adults.map(m=>m.name).join(" and ")}</div>
         </div>
       </div>
       <div style={{padding:"0 20px 40px"}}>
@@ -1660,13 +2771,89 @@ function BufferAccount({ members, buffer, onBack, onDeposit, onWithdraw }) {
           {showDep&&(<div style={{marginTop:12}}><div style={{display:"flex",gap:8,marginBottom:8}}>{adults.map(m=><button key={m.id} onClick={()=>setDepM(m.id)} style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:6,background:depM===m.id?"rgba(124,111,255,0.15)":"rgba(255,255,255,0.04)",border:"1px solid "+(depM===m.id?"rgba(124,111,255,0.4)":C.border),borderRadius:10,padding:"8px 0",cursor:"pointer"}}><Avatar m={m} size={20}/><span style={{fontSize:12,color:depM===m.id?"#7C6FFF":C.t2}}>{m.name}</span></button>)}</div><div style={{display:"flex",gap:8}}><input value={depAmt} onChange={e=>setDepAmt(e.target.value)} placeholder="Amount (kr)" type="number" style={{flex:1,background:"rgba(255,255,255,0.05)",border:"1px solid "+C.border,borderRadius:10,padding:"9px 12px",fontSize:14,color:C.t1,outline:"none"}}/><button onClick={hDep} style={{background:"#7C6FFF",border:"none",borderRadius:10,padding:"9px 16px",fontSize:14,fontWeight:500,color:"#fff",cursor:"pointer"}}>Add</button></div></div>)}
           {showWith&&(<div style={{marginTop:12,display:"flex",gap:8}}><input value={withAmt} onChange={e=>setWithAmt(e.target.value)} placeholder="Amount (kr)" type="number" style={{flex:1,background:"rgba(255,255,255,0.05)",border:"1px solid "+C.border,borderRadius:10,padding:"9px 12px",fontSize:14,color:C.t1,outline:"none"}}/><button onClick={hWith} style={{background:"rgba(255,255,255,0.1)",border:"1px solid "+C.border,borderRadius:10,padding:"9px 16px",fontSize:14,fontWeight:500,color:C.t2,cursor:"pointer"}}>Withdraw</button></div>)}
         </div>
+        {buffer.agreement&&<FamilyAgreementCard agreement={buffer.agreement} members={adults}/>}
+        {buffer.agreement?.reflection&&(
+          <div style={{marginBottom:16}}>
+            <button onClick={()=>setShowInsight(v=>!v)} style={{display:"flex",alignItems:"center",gap:8,background:showInsight?"rgba(52,211,153,0.15)":"rgba(52,211,153,0.08)",border:"1px solid "+(showInsight?"rgba(52,211,153,0.45)":"rgba(52,211,153,0.2)"),borderRadius:showInsight?"12px 12px 0 0":"12px",padding:"9px 14px",cursor:"pointer",width:"100%",textAlign:"left"}}>
+              <span style={{fontSize:15}}>✨</span>
+              <span style={{fontSize:13,fontWeight:600,color:"rgba(52,211,153,0.95)",flex:1}}>AI Insight</span>
+              <span style={{fontSize:12,color:"rgba(52,211,153,0.6)",display:"inline-block",transform:showInsight?"rotate(180deg)":"rotate(0deg)",transition:"transform 0.2s"}}>▾</span>
+            </button>
+            {showInsight&&(
+              <div style={{background:"rgba(52,211,153,0.06)",borderRadius:"0 0 12px 12px",border:"1px solid rgba(52,211,153,0.2)",borderTop:"none",padding:"12px 14px 14px"}}>
+                <div style={{fontSize:13,color:C.t2,lineHeight:1.7}}>{buffer.agreement.reflection}</div>
+              </div>
+            )}
+          </div>
+        )}
         <div style={{background:C.card,borderRadius:16,border:"1px solid "+C.border}}>
           <div style={{display:"flex",borderBottom:"1px solid "+C.border}}>{["overview","history"].map(t=><button key={t} onClick={()=>setTab(t)} style={{flex:1,background:"none",border:"none",color:tab===t?"#7C6FFF":C.t3,borderBottom:tab===t?"2px solid #7C6FFF":"2px solid transparent",padding:"12px 0",fontSize:13,fontWeight:tab===t?500:400,cursor:"pointer",textTransform:"capitalize"}}>{t}</button>)}</div>
-          {tab==="overview"&&[{icon:"📅",label:"Monthly contribution",sub:"Per adult",val:fmt(buffer.monthly)+" kr"},{icon:"👥",label:"Account holders",sub:"Both can deposit & withdraw",val:adults.length+" adults"},{icon:"📈",label:"Saved this year",sub:"Jan–Mar 2026",val:fmt(buffer.monthly*3)+" kr"}].map((row,i,arr)=>(
-            <div key={i} style={{display:"flex",alignItems:"center",gap:14,padding:"14px 16px",borderBottom:i<arr.length-1?"1px solid "+C.border:"none"}}><span style={{fontSize:20,width:32,textAlign:"center"}}>{row.icon}</span><span style={{flex:1}}><span style={{display:"block",fontSize:13,fontWeight:500,color:C.t1}}>{row.label}</span><span style={{display:"block",fontSize:11,color:C.t3}}>{row.sub}</span></span><span style={{fontSize:13,fontWeight:500,color:C.t1}}>{row.val}</span></div>
-          ))}
-          {tab==="history"&&buffer.transactions.map((tx,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 16px",borderBottom:i<buffer.transactions.length-1?"1px solid "+C.border:"none"}}><div><div style={{fontSize:13,fontWeight:500,color:C.t1}}>{tx.desc}</div><div style={{fontSize:11,color:C.t3}}>{tx.date}</div></div><span style={{fontSize:14,fontWeight:500,color:tx.amount>0?C.green:C.red}}>{(tx.amount>0?"+":"")+fmt(tx.amount)+" kr"}</span></div>)}
+          {tab==="overview"&&<>
+            {[{icon:"📅",label:"Monthly contribution",sub:"Per adult",val:fmt(buffer.monthly)+" kr"},{icon:"👥",label:"Account holders",sub:"Both can deposit & withdraw",val:adults.length+" adults"},{icon:"📈",label:"Saved this year",sub:"Jan–Mar 2026",val:fmt(buffer.monthly*3)+" kr"}].map((row,i)=>(
+              <div key={i} style={{display:"flex",alignItems:"center",gap:14,padding:"14px 16px",borderBottom:"1px solid "+C.border}}><span style={{fontSize:20,width:32,textAlign:"center"}}>{row.icon}</span><span style={{flex:1}}><span style={{display:"block",fontSize:13,fontWeight:500,color:C.t1}}>{row.label}</span><span style={{display:"block",fontSize:13,color:C.t3}}>{row.sub}</span></span><span style={{fontSize:13,fontWeight:500,color:C.t1}}>{row.val}</span></div>
+            ))}
+            <button onClick={onAutoSaveSettings||undefined} style={{width:"100%",background:"none",border:"none",display:"flex",alignItems:"center",gap:14,padding:"14px 16px",cursor:onAutoSaveSettings?"pointer":"default",textAlign:"left"}}>
+              <span style={{fontSize:20,width:32,textAlign:"center",flexShrink:0}}>🔄</span>
+              <span style={{flex:1}}><span style={{display:"block",fontSize:13,fontWeight:500,color:C.t1}}>Auto-save</span><span style={{display:"block",fontSize:13,color:C.t3}}>Active on every purchase</span></span>
+              {onAutoSaveSettings&&<span style={{fontSize:13,color:C.t3}}>›</span>}
+            </button>
+          </>}
+          {tab==="history"&&buffer.transactions.map((tx,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 16px",borderBottom:i<buffer.transactions.length-1?"1px solid "+C.border:"none"}}><div><div style={{fontSize:13,fontWeight:500,color:C.t1}}>{tx.desc}</div><div style={{fontSize:13,color:C.t3}}>{tx.date}</div></div><span style={{fontSize:14,fontWeight:500,color:tx.amount>0?C.green:C.red}}>{(tx.amount>0?"+":"")+fmt(tx.amount)+" kr"}</span></div>)}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function FamilyAgreementCard({ agreement, members, color="#7C6FFF" }) {
+  const [open,setOpen]=useState(false);
+  const signers=agreement.signers||[];
+  const [signed,setSigned]=useState<number[]>(signers.filter((s:any)=>s.signed).map((s:any)=>s.id));
+  const allSigned=signers.length>0&&signers.every((s:any)=>signed.includes(s.id));
+  const toggleSign=(id:number)=>setSigned(prev=>prev.includes(id)?prev.filter(x=>x!==id):[...prev,id]);
+  return (
+    <div style={{marginBottom:16}}>
+      <div style={{background:"linear-gradient(135deg,rgba(124,111,255,0.12) 0%,rgba(96,165,250,0.10) 100%)",borderRadius:16,border:"1px solid rgba(124,111,255,0.25)",overflow:"hidden"}}>
+        <button onClick={()=>setOpen(v=>!v)} style={{width:"100%",background:"none",border:"none",display:"flex",alignItems:"center",gap:12,padding:"14px 16px",cursor:"pointer",textAlign:"left"}}>
+          <span style={{fontSize:22,flexShrink:0}}>🤝</span>
+          <div style={{flex:1}}>
+            <div style={{fontSize:13,fontWeight:600,color:C.t1}}>Family agreement</div>
+            <div style={{fontSize:12,color:C.t3,marginTop:1}}>Set {agreement.date} · {allSigned?"Both signed ✓":"Pending signatures"}</div>
+          </div>
+          {members&&<div style={{display:"flex",flexShrink:0,marginRight:4}}>{members.map((m:any,i:number)=><div key={m.id} style={{marginLeft:i>0?-8:0,zIndex:members.length-i}}><Avatar m={m} size={22}/></div>)}</div>}
+          <span style={{fontSize:11,color:"rgba(124,111,255,0.8)",transform:open?"rotate(180deg)":"rotate(0deg)",transition:"transform 0.2s",flexShrink:0}}>▼</span>
+        </button>
+        {open&&(
+          <div style={{padding:"0 16px 16px"}}>
+            <div style={{fontSize:13,color:C.t1,lineHeight:1.7,fontStyle:"italic",borderLeft:"3px solid rgba(124,111,255,0.5)",paddingLeft:12,marginBottom:14}}>
+              "{agreement.text}"
+            </div>
+            {signers.length>0&&(
+              <div style={{marginBottom:14}}>
+                <div style={{fontSize:11,fontWeight:600,color:C.t3,letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:10}}>Signatures</div>
+                <div style={{display:"flex",gap:10}}>
+                  {signers.map((s:any)=>{
+                    const isSigned=signed.includes(s.id);
+                    return (
+                      <div key={s.id} onClick={()=>toggleSign(s.id)}
+                        style={{flex:1,background:isSigned?s.color+"18":"rgba(255,255,255,0.04)",border:"1px solid "+(isSigned?s.color+"44":C.border),borderRadius:14,padding:"12px 10px",cursor:"pointer",textAlign:"center",transition:"all 0.2s"}}>
+                        <div style={{display:"flex",justifyContent:"center",marginBottom:8,position:"relative"}}>
+                          <Avatar m={s} size={36}/>
+                          {isSigned&&<div style={{position:"absolute",bottom:-2,right:"calc(50% - 22px)",width:14,height:14,borderRadius:"50%",background:C.green,border:"2px solid "+C.card,display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,color:"#fff",fontWeight:700}}>✓</div>}
+                        </div>
+                        <div style={{fontSize:12,fontWeight:500,color:isSigned?s.color:C.t2,marginBottom:isSigned?4:0}}>{s.name}</div>
+                        {isSigned
+                          ? <div style={{fontSize:11,color:C.t3,fontStyle:"italic"}}>{s.signedDate||agreement.date}</div>
+                          : <div style={{fontSize:11,color:C.t3,background:"rgba(255,255,255,0.06)",borderRadius:8,padding:"3px 8px",marginTop:4,display:"inline-block"}}>Tap to sign</div>
+                        }
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1684,6 +2871,9 @@ function SavingsGoalDetail({ member, onBack, onUpdate, onAutoSaveSettings }) {
   const [showWith,setShowWith]=useState(false);
   const [withAmt,setWithAmt]=useState("");
   const [sliderMonthly,setSliderMonthly]=useState(g.monthly);
+  const [allowanceOpen,setAllowanceOpen]=useState(false);
+  const [extraBoost,setExtraBoost]=useState("");
+  const [editAllowance,setEditAllowance]=useState(String(g.allowance||100));
   const monthly=g.monthly;
   const remaining=g.target-g.saved;
   const calcMonths=Math.max(1,Math.ceil(remaining/monthly));
@@ -1694,7 +2884,6 @@ function SavingsGoalDetail({ member, onBack, onUpdate, onAutoSaveSettings }) {
   const sliderMax=Math.max(monthly*3,3000);
   const hDep=()=>{const a=parseInt(depAmt,10);if(!a||a<=0)return;onUpdate(member.id,{...g,saved:g.saved+a});setDepAmt("");setShowDep(false);};
   const hWith=()=>{const a=parseInt(withAmt,10);if(!a||a<=0)return;onUpdate(member.id,{...g,saved:Math.max(0,g.saved-a)});setWithAmt("");setShowWith(false);};
-  const hSave=()=>{onUpdate(member.id,{...g,name,desc,emoji,color:gc});setEditing(false);};
   return (
     <div style={{background:C.bg,color:C.t1}}>
       <div style={{position:"relative",overflow:"hidden"}}>
@@ -1719,7 +2908,7 @@ function SavingsGoalDetail({ member, onBack, onUpdate, onAutoSaveSettings }) {
       {editing&&(<div style={{padding:"16px 20px 0"}}><div style={{display:"flex",justifyContent:"center",gap:10,flexWrap:"wrap"}}>{GOAL_EMOJIS.map(e=><button key={e} onClick={()=>setEmoji(e)} style={{fontSize:22,background:emoji===e?gc+"33":"rgba(255,255,255,0.05)",border:"1px solid "+(emoji===e?gc:"transparent"),borderRadius:10,width:42,height:42,cursor:"pointer"}}>{e}</button>)}</div><div style={{display:"flex",justifyContent:"center",gap:10,marginTop:12}}>{GOAL_COLORS.map(col=><button key={col} onClick={()=>setGc(col)} style={{width:28,height:28,borderRadius:"50%",background:col,border:gc===col?"3px solid white":"3px solid transparent",cursor:"pointer"}}/>)}</div></div>)}
       <div style={{padding:"0 20px 40px"}}>
         <div style={{background:C.card,borderRadius:18,border:"1px solid "+C.border,padding:"18px 20px",marginBottom:16}}>
-          <div style={{display:"flex",justifyContent:"space-between",marginBottom:14}}><div><div style={{fontSize:11,color:C.t3,marginBottom:4}}>Saved</div><div style={{fontSize:30,fontWeight:500}}>{fmt(g.saved)+" "}<span style={{fontSize:14,color:C.t2}}>SEK</span></div></div><div style={{textAlign:"right"}}><div style={{fontSize:11,color:C.t3,marginBottom:4}}>Target</div><div style={{fontSize:18,fontWeight:500,color:C.t2}}>{fmt(g.target)+" SEK"}</div></div></div>
+          <div style={{display:"flex",justifyContent:"space-between",marginBottom:14}}><div><div style={{fontSize:13,color:C.t3,marginBottom:4}}>Saved</div><div style={{fontSize:30,fontWeight:500}}>{fmt(g.saved)+" "}<span style={{fontSize:14,color:C.t2}}>SEK</span></div></div><div style={{textAlign:"right"}}><div style={{fontSize:13,color:C.t3,marginBottom:4}}>Target</div><div style={{fontSize:18,fontWeight:500,color:C.t2}}>{fmt(g.target)+" SEK"}</div></div></div>
           <Bar value={g.saved} max={g.target} color={gc} height={6}/>
           <div style={{display:"flex",justifyContent:"space-between",marginTop:8,fontSize:12,color:C.t3}}><span>0%</span><span style={{color:gc,fontWeight:500}}>{pct+"% collected"}</span></div>
           <div style={{display:"flex",gap:10,marginTop:16}}>
@@ -1730,23 +2919,24 @@ function SavingsGoalDetail({ member, onBack, onUpdate, onAutoSaveSettings }) {
           {showWith&&<div style={{marginTop:12,display:"flex",gap:8}}><input value={withAmt} onChange={e=>setWithAmt(e.target.value)} placeholder="Amount (SEK)" type="number" style={{flex:1,background:"rgba(255,255,255,0.05)",border:"1px solid "+C.border,borderRadius:10,padding:"9px 12px",fontSize:14,color:C.t1,outline:"none"}}/><button onClick={hWith} style={{background:"rgba(255,255,255,0.1)",border:"1px solid "+C.border,borderRadius:10,padding:"9px 16px",fontSize:14,fontWeight:500,color:C.t2,cursor:"pointer"}}>Withdraw</button></div>}
         </div>
         <div style={{background:C.card,borderRadius:16,border:"1px solid "+C.border,padding:16,marginBottom:16}}><div style={{fontSize:14,fontWeight:500,marginBottom:8}}>About this goal</div>{editing?<textarea value={desc} onChange={e=>setDesc(e.target.value)} style={{width:"100%",background:"rgba(255,255,255,0.04)",border:"1px solid "+gc+"44",borderRadius:10,padding:"10px 12px",fontSize:13,color:C.t1,resize:"none",outline:"none",lineHeight:1.6,boxSizing:"border-box",minHeight:80}}/>:<div style={{fontSize:13,color:C.t2,lineHeight:1.7}}>{g.desc}</div>}</div>
-        <div style={{background:C.card,borderRadius:16,border:"1px solid "+C.border,padding:"16px 18px",marginBottom:16}}>
+        {g.agreement&&<FamilyAgreementCard agreement={g.agreement} members={[member]} color={gc}/>}
+        {!isChild&&<div style={{background:C.card,borderRadius:16,border:"1px solid "+C.border,padding:"16px 18px",marginBottom:16}}>
           <div style={{fontSize:13,fontWeight:500,color:C.t1,marginBottom:14}}>Adjust monthly savings</div>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",marginBottom:10}}>
             <div>
               <div style={{fontSize:28,fontWeight:500,color:gc,lineHeight:1}}>{fmt(sliderMonthly)}<span style={{fontSize:13,color:C.t2}}> kr/mo</span></div>
-              {sliderMonthly!==monthly&&<div style={{fontSize:11,color:C.t3,marginTop:3}}>Current: {fmt(monthly)} kr/mo</div>}
+              {sliderMonthly!==monthly&&<div style={{fontSize:13,color:C.t3,marginTop:3}}>Current: {fmt(monthly)} kr/mo</div>}
             </div>
             <div style={{textAlign:"right"}}>
               <div style={{fontSize:13,fontWeight:600,color:monthDiff>0?C.green:monthDiff<0?C.red:C.t3}}>
                 {monthDiff===0?"No change":monthDiff>0?`${monthDiff} month${monthDiff!==1?"s":""} faster`:`${Math.abs(monthDiff)} month${Math.abs(monthDiff)!==1?"s":""} slower`}
               </div>
-              <div style={{fontSize:11,color:C.t3,marginTop:2}}>Done by {sliderDate}</div>
+              <div style={{fontSize:13,color:C.t3,marginTop:2}}>Done by {sliderDate}</div>
             </div>
           </div>
           <input type="range" min={100} max={sliderMax} step={50} value={sliderMonthly} onChange={e=>setSliderMonthly(Number(e.target.value))}
             style={{width:"100%",accentColor:gc,cursor:"pointer",height:4}}/>
-          <div style={{display:"flex",justifyContent:"space-between",marginTop:6,fontSize:10,color:C.t3}}>
+          <div style={{display:"flex",justifyContent:"space-between",marginTop:6,fontSize:12,color:C.t3}}>
             <span>100 kr</span><span>{fmt(sliderMax)} kr</span>
           </div>
           {sliderMonthly!==monthly&&(
@@ -1754,12 +2944,77 @@ function SavingsGoalDetail({ member, onBack, onUpdate, onAutoSaveSettings }) {
               Save {fmt(sliderMonthly)} kr/mo as new monthly goal
             </button>
           )}
-        </div>
-        {editing&&<button onClick={hSave} style={{width:"100%",background:gc,border:"none",borderRadius:12,padding:13,fontSize:14,fontWeight:500,color:"#fff",cursor:"pointer",marginBottom:16}}>Save changes</button>}
+        </div>}
+        {isChild&&(()=>{
+          const fixedAllowance=g.allowance||100;
+          const boostAmt=parseInt(extraBoost,10)||0;
+          const effectiveRemaining=Math.max(0,remaining-boostAmt);
+          const baseWeeks=Math.max(1,Math.ceil(remaining/fixedAllowance));
+          const boostedWeeks=boostAmt>0?Math.max(1,Math.ceil(effectiveRemaining/fixedAllowance)):baseWeeks;
+          const weeksSaved=baseWeeks-boostedWeeks;
+          const baseDate=(()=>{const d=new Date();d.setDate(d.getDate()+baseWeeks*7);return d.toLocaleDateString("en-SE",{month:"long",year:"numeric"});})();
+          const boostedDate=(()=>{const d=new Date();d.setDate(d.getDate()+boostedWeeks*7);return d.toLocaleDateString("en-SE",{month:"long",year:"numeric"});})();
+          return (
+            <div style={{background:C.card,borderRadius:16,border:"1px solid "+gc+"44",marginBottom:16,overflow:"hidden"}}>
+              <button onClick={()=>setAllowanceOpen(v=>!v)} style={{width:"100%",background:"none",border:"none",display:"flex",alignItems:"center",gap:12,padding:"14px 16px",cursor:"pointer",textAlign:"left"}}>
+                <span style={{fontSize:20}}>🪙</span>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:13,fontWeight:500,color:C.t1}}>{baseWeeks===1?"Just 1 week of allowance to go!":baseWeeks+" weeks of allowance to go"}</div>
+                  <div style={{fontSize:13,color:C.t3,marginTop:2}}>Based on your {fmt(fixedAllowance)} kr / week allowance</div>
+                </div>
+                <span style={{fontSize:12,color:gc,transform:allowanceOpen?"rotate(180deg)":"rotate(0deg)",transition:"transform 0.2s",display:"inline-block"}}>▼</span>
+              </button>
+              {allowanceOpen&&(
+                <div style={{padding:"0 16px 16px"}}>
+                  <div style={{background:gc+"15",borderRadius:12,padding:"14px 16px",marginBottom:16}}>
+                    <div style={{fontSize:13,color:C.t2,marginBottom:6}}>Your weekly allowance</div>
+                    <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
+                      <div style={{fontSize:26,fontWeight:600,color:gc,lineHeight:1}}>{fmt(fixedAllowance)}<span style={{fontSize:13,color:C.t2,fontWeight:400}}> kr/week</span></div>
+                      <div style={{fontSize:11,color:C.t3,background:"rgba(255,255,255,0.06)",borderRadius:20,padding:"3px 10px",border:"1px solid "+C.border}}>Set by parents</div>
+                    </div>
+                    <div style={{fontSize:14,fontWeight:500,color:C.t1,lineHeight:1.6}}>
+                      {"You'll reach your goal in "}
+                      <span style={{color:gc,fontWeight:700}}>{baseWeeks+" "+(baseWeeks===1?"week":"weeks")}</span>
+                      {" — around "}
+                      <span style={{color:gc,fontWeight:600}}>{baseDate}</span>
+                      {" 🎉"}
+                    </div>
+                  </div>
+                  <div style={{fontSize:12,fontWeight:600,color:C.t3,letterSpacing:"0.05em",textTransform:"uppercase",marginBottom:10}}>Boost your goal</div>
+                  <div style={{fontSize:13,color:C.t2,marginBottom:10,lineHeight:1.5}}>Add an extra deposit to reach your goal sooner — birthday money, pocket change, anything counts!</div>
+                  <div style={{display:"flex",gap:8,marginBottom:boostAmt>0?12:0}}>
+                    <input value={extraBoost} onChange={e=>setExtraBoost(e.target.value)} placeholder="Extra amount (kr)" type="number" style={{flex:1,background:"rgba(255,255,255,0.05)",border:"1px solid "+C.border,borderRadius:10,padding:"9px 12px",fontSize:14,color:C.t1,outline:"none"}}/>
+                    {boostAmt>0&&<button onClick={()=>{onUpdate(member.id,{...g,saved:g.saved+boostAmt});setExtraBoost("");}} style={{background:gc,border:"none",borderRadius:10,padding:"9px 16px",fontSize:13,fontWeight:500,color:"#fff",cursor:"pointer",whiteSpace:"nowrap"}}>Add it!</button>}
+                  </div>
+                  {boostAmt>0&&(
+                    <div style={{display:"flex",alignItems:"center",gap:8,background:gc+"12",borderRadius:10,padding:"10px 12px",border:"1px solid "+gc+"33"}}>
+                      <span style={{fontSize:16}}>🚀</span>
+                      <div style={{fontSize:13,color:C.t1,lineHeight:1.5}}>
+                        {"Add "}<span style={{color:gc,fontWeight:600}}>{fmt(boostAmt)+" kr"}</span>
+                        {weeksSaved>0
+                          ? <>{" → done by "}<span style={{color:gc,fontWeight:600}}>{boostedDate}</span>{" ("}<span style={{color:C.green,fontWeight:600}}>{weeksSaved+" week"+(weeksSaved!==1?"s":"")} sooner!</span>{")"}</>
+                          : <>{" → still done by "}<span style={{color:gc,fontWeight:600}}>{boostedDate}</span></>
+                        }
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+        {editing&&isChild&&<div style={{background:C.card,borderRadius:16,border:"1px solid "+gc+"44",padding:"14px 16px",marginBottom:12}}>
+          <div style={{fontSize:13,fontWeight:500,color:C.t1,marginBottom:10}}>Weekly allowance</div>
+          <div style={{display:"flex",gap:8,alignItems:"center"}}>
+            <input value={editAllowance} onChange={e=>setEditAllowance(e.target.value)} type="number" placeholder="kr/week" style={{flex:1,background:"rgba(255,255,255,0.05)",border:"1px solid "+C.border,borderRadius:10,padding:"9px 12px",fontSize:14,color:C.t1,outline:"none"}}/>
+            <span style={{fontSize:13,color:C.t3}}>kr / week</span>
+          </div>
+        </div>}
+        {editing&&<button onClick={()=>{const a=parseInt(editAllowance,10);onUpdate(member.id,{...g,name,desc,emoji,color:gc,...(isChild&&a>0?{allowance:a}:{})});setEditing(false);}} style={{width:"100%",background:gc,border:"none",borderRadius:12,padding:13,fontSize:14,fontWeight:500,color:"#fff",cursor:"pointer",marginBottom:16}}>Save changes</button>}
         <div style={{background:C.card,borderRadius:16,border:"1px solid "+C.border}}>
           <div style={{display:"flex",alignItems:"center",gap:14,padding:"14px 16px",borderBottom:"1px solid "+C.border}}>          <span style={{fontSize:20,width:32,textAlign:"center"}}>{"📈"}</span><span style={{flex:1}}><span style={{display:"block",fontSize:13,fontWeight:500,color:C.t1}}>Monthly growth</span></span><span style={{fontSize:13,fontWeight:500,color:C.green}}>{"+"+fmt(g.monthly)+" SEK"}</span></div>
-          <div style={{display:"flex",alignItems:"center",gap:14,padding:"14px 16px",borderBottom:"1px solid "+C.border}}><span style={{fontSize:20,width:32,textAlign:"center"}}>{"📅"}</span><span style={{flex:1}}><span style={{display:"block",fontSize:13,fontWeight:500,color:C.t1}}>Est. completion</span><span style={{display:"block",fontSize:11,color:C.t3}}>{calcDate}</span></span></div>
-          <button onClick={isChild?undefined:onAutoSaveSettings} style={{width:"100%",background:"none",border:"none",display:"flex",alignItems:"center",gap:14,padding:"14px 16px",cursor:isChild?"default":"pointer",textAlign:"left"}}><span style={{fontSize:20,width:32,textAlign:"center",flexShrink:0}}>{"🔄"}</span><span style={{flex:1}}><span style={{display:"block",fontSize:13,fontWeight:500,color:C.t1}}>Auto-save</span><span style={{display:"block",fontSize:11,color:C.t3}}>{isChild?"Not available for child accounts":"Active on every purchase"}</span></span>{isChild?<span style={{fontSize:11,color:C.t3,background:"rgba(255,255,255,0.05)",borderRadius:20,padding:"4px 10px"}}>Locked</span>:<span style={{fontSize:13,color:C.t3}}>{">"}</span>}</button>
+          <div style={{display:"flex",alignItems:"center",gap:14,padding:"14px 16px",borderBottom:"1px solid "+C.border}}><span style={{fontSize:20,width:32,textAlign:"center"}}>{"📅"}</span><span style={{flex:1}}><span style={{display:"block",fontSize:13,fontWeight:500,color:C.t1}}>Est. completion</span><span style={{display:"block",fontSize:13,color:C.t3}}>{calcDate}</span></span></div>
+          <button onClick={isChild?undefined:onAutoSaveSettings} style={{width:"100%",background:"none",border:"none",display:"flex",alignItems:"center",gap:14,padding:"14px 16px",cursor:isChild?"default":"pointer",textAlign:"left"}}><span style={{fontSize:20,width:32,textAlign:"center",flexShrink:0}}>{"🔄"}</span><span style={{flex:1}}><span style={{display:"block",fontSize:13,fontWeight:500,color:C.t1}}>Auto-save</span><span style={{display:"block",fontSize:13,color:C.t3}}>{isChild?"Not available for child accounts":"Active on every purchase"}</span></span>{isChild?<span style={{fontSize:13,color:C.t3,background:"rgba(255,255,255,0.05)",borderRadius:20,padding:"4px 10px"}}>Locked</span>:<span style={{fontSize:13,color:C.t3}}>{">"}</span>}</button>
         </div>
       </div>
     </div>
@@ -1792,77 +3047,327 @@ function TxDetail({ tx, member, onBack }) {
   );
 }
 
-function MemberDetail({ m, onBack, onTx, onGoal, onChildFund, childFund }) {
-  const [tab,setTab]=useState("activity");
+function MemberDetail({ m, onBack, onTx, onGoal, onChildFund, childFund, buffer, lucasFund, summerHoliday, onBuf, onLucasCF, onCF, onSH, initialTab="activity", onUpdateAllowance=null, onUpdateMember=null }) {
+  const [tab,setTab]=useState(initialTab);
   const [expanded,setExpanded]=useState(false);
+  const [editAllowanceOpen,setEditAllowanceOpen]=useState(false);
+  const [editAllowanceVal,setEditAllowanceVal]=useState(String(m.savingsGoal?.allowance||100));
+  const [editOpen,setEditOpen]=useState(false);
+  const [editName,setEditName]=useState(m.fullName);
+  const [editEmail,setEditEmail]=useState(m.email);
+  const [editPhone,setEditPhone]=useState(m.phone);
+  const [editPhoto,setEditPhoto]=useState(m.photo||"");
   const g=m.savingsGoal,goalPct=Math.round((g.saved/g.target)*100);
+  const isParent=m.role==="Parent";
+  const inp=(label,val,set,type="text")=>(
+    <div style={{marginBottom:12}}>
+      <div style={{fontSize:11,fontWeight:600,color:C.t3,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:5}}>{label}</div>
+      <input value={val} onChange={e=>set(e.target.value)} type={type} style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid "+C.border,borderRadius:10,padding:"10px 12px",fontSize:13,color:C.t1,outline:"none",boxSizing:"border-box"}}/>
+    </div>
+  );
+  const secLabel=(label)=>(
+    <div style={{fontSize:11,fontWeight:600,color:C.t3,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:10,marginTop:20}}>{label}</div>
+  );
+  const savRow=(icon,label,sub,right,rightSub,onClick,color?,pct?)=>(
+    <div onClick={onClick} onMouseEnter={e=>e.currentTarget.style.opacity="0.75"} onMouseLeave={e=>e.currentTarget.style.opacity="1"}
+      style={{background:C.card,borderRadius:14,border:"1px solid "+C.border,padding:"13px 14px",cursor:"pointer",marginBottom:8}}>
+      <div style={{display:"flex",alignItems:"center",gap:12}}>
+        <div style={{width:40,height:40,borderRadius:12,background:(color||"#7C6FFF")+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>{icon}</div>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontSize:14,fontWeight:500,color:C.t1}}>{label}</div>
+          <div style={{fontSize:12,color:C.t3,marginTop:2}}>{sub}</div>
+        </div>
+        <div style={{textAlign:"right",flexShrink:0}}>
+          <div style={{fontSize:14,fontWeight:500,color:color||C.accent}}>{right}</div>
+          {rightSub&&<div style={{fontSize:12,color:C.t3,marginTop:1}}>{rightSub}</div>}
+        </div>
+        <div style={{color:C.t3,fontSize:14,marginLeft:2}}>›</div>
+      </div>
+      {pct!=null&&<Bar value={pct} max={100} color={color||C.accent} height={4}/>}
+    </div>
+  );
   return (
     <div style={{background:C.bg,minHeight:"100%",color:C.t1}}>
       <div style={{background:C.surface,padding:"20px 20px 24px",borderBottom:"1px solid "+C.border}}>
-        <div style={{background:C.card,border:"1.5px solid "+(expanded?m.color+"66":C.border),borderRadius:16,marginBottom:16,overflow:"hidden"}}>
-          <div onClick={()=>setExpanded(v=>!v)} style={{display:"flex",alignItems:"center",gap:14,padding:"12px 14px",cursor:"pointer"}}>
-            <Avatar m={m} size={52}/>
+        <div style={{background:C.card,border:"1.5px solid "+(editOpen?m.color+"66":C.border),borderRadius:16,marginBottom:16,overflow:"hidden"}}>
+          <div style={{display:"flex",alignItems:"center",gap:14,padding:"12px 14px"}}>
+            <div style={{position:"relative",flexShrink:0}}>
+              <Avatar m={editOpen?{...m,photo:editPhoto,fullName:editName}:m} size={52}/>
+            </div>
             <div style={{flex:1}}>
               <div style={{fontSize:18,fontWeight:500,color:C.t1}}>{m.fullName}</div>
               <div style={{fontSize:12,color:C.t2,marginTop:1}}>{m.age+" years old · "+m.role}</div>
               <div style={{marginTop:5}}><Badge label={m.status} color={m.statusColor} bg={m.statusBg}/></div>
             </div>
-            <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,flexShrink:0}}>
-              <span style={{fontSize:10,color:m.color,fontWeight:500}}>{expanded?"Less":"Info"}</span>
-              <span style={{color:m.color,fontSize:14,display:"block",transform:expanded?"rotate(180deg)":"rotate(0deg)",transition:"transform 0.2s"}}>v</span>
-            </div>
+            <button onClick={()=>setEditOpen(v=>!v)} style={{background:editOpen?m.color+"22":"rgba(255,255,255,0.06)",border:"1px solid "+(editOpen?m.color+"55":C.border),borderRadius:10,padding:"6px 14px",fontSize:12,fontWeight:500,color:editOpen?m.color:C.t2,cursor:"pointer",flexShrink:0}}>
+              {editOpen?"Cancel":"Edit"}
+            </button>
           </div>
-          {expanded&&<div style={{borderTop:"1px solid "+C.border,padding:"12px 14px",display:"flex",flexDirection:"column",gap:10,background:m.colorSoft}}>
+          <div style={{borderTop:"1px solid "+C.border,padding:"12px 14px",display:"flex",flexDirection:"column",gap:6,background:"rgba(255,255,255,0.02)"}}>
             {[{icon:"📧",val:m.email},{icon:"📱",val:m.phone},{icon:"📅",val:"Member since "+m.joined}].map((row,i)=>(
               <div key={i} style={{display:"flex",alignItems:"center",gap:10}}>
                 <span style={{fontSize:14,width:20,textAlign:"center",flexShrink:0}}>{row.icon}</span>
-                <span style={{fontSize:12,color:C.t2}}>{row.val}</span>
+                <span style={{fontSize:12,color:C.t2}}>{row.val||"—"}</span>
               </div>
             ))}
-          </div>}
+          </div>
+          {editOpen&&(
+            <div style={{borderTop:"1px solid "+m.color+"33",padding:"16px 14px",background:m.color+"0a"}}>
+              <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
+                <input type="file" accept="image/*" id={"photo-upload-"+m.id} style={{display:"none"}} onChange={e=>{const f=e.target.files?.[0];if(!f)return;const r=new FileReader();r.onload=ev=>setEditPhoto(ev.target?.result as string);r.readAsDataURL(f);}}/>
+                <label htmlFor={"photo-upload-"+m.id} style={{width:56,height:56,borderRadius:16,overflow:"hidden",flexShrink:0,border:"2px solid "+m.color+"44",cursor:"pointer",position:"relative",display:"block"}}>
+                  {editPhoto?<img src={editPhoto} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<div style={{width:"100%",height:"100%",background:m.colorSoft,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>{m.initials}</div>}
+                  <div style={{position:"absolute",inset:0,background:"rgba(0,0,0,0.35)",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                  </div>
+                </label>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:13,fontWeight:500,color:C.t1,marginBottom:2}}>Profile photo</div>
+                  <div style={{fontSize:12,color:C.t3}}>Tap the photo to open your library</div>
+                </div>
+              </div>
+              {inp("Full name",editName,setEditName)}
+              {inp("Email",editEmail,setEditEmail,"email")}
+              {inp("Phone",editPhone,setEditPhone,"tel")}
+              <button onClick={()=>{if(onUpdateMember)onUpdateMember({...m,fullName:editName,email:editEmail,phone:editPhone,photo:editPhoto});setEditOpen(false);}} style={{width:"100%",background:m.color,border:"none",borderRadius:10,padding:"11px 0",fontSize:13,fontWeight:600,color:"#fff",cursor:"pointer",marginTop:4}}>Save changes</button>
+            </div>
+          )}
         </div>
-        <div style={{display:"flex",gap:10}}>{[{label:"Spent",val:fmt(m.spendMonth)+" kr"},{label:"Limit",val:fmt(m.spendLimit)+" kr"},{label:"Cards",val:m.cards}].map(s=><div key={s.label} style={{flex:1,background:C.card,borderRadius:12,padding:"10px 12px",border:"1px solid "+C.border}}><div style={{fontSize:11,color:C.t3,marginBottom:4}}>{s.label}</div><div style={{fontSize:16,fontWeight:500}}>{s.val}</div></div>)}</div>
+        <div style={{display:"flex",gap:10,marginBottom:14}}>{[
+          {label:"Spent",val:fmt(m.spendMonth)+" kr"},
+          {label:"Limit",val:fmt(m.spendLimit)+" kr"},
+          ...(!isParent&&m.savingsGoal?.allowance?[{label:"Allowance",val:fmt(m.savingsGoal.allowance)+" kr/wk",color:m.color,editable:true}]:[]),
+        ].map(s=><div key={s.label} onClick={s.editable?()=>setEditAllowanceOpen(v=>!v):undefined} style={{flex:1,background:C.card,borderRadius:12,padding:"10px 12px",border:"1px solid "+(editAllowanceOpen&&s.editable?s.color+"88":s.color?s.color+"44":C.border),cursor:s.editable?"pointer":"default"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+            <div style={{fontSize:11,color:C.t3}}>{s.label}</div>
+            {s.editable&&<span style={{fontSize:10,fontWeight:600,color:s.color,background:s.color+"18",borderRadius:6,padding:"1px 5px",letterSpacing:"0.03em"}}>edit</span>}
+          </div>
+          <div style={{fontSize:15,fontWeight:500,color:s.color||C.t1}}>{s.val}</div>
+        </div>)}</div>
+        {editAllowanceOpen&&!isParent&&(
+          <div style={{background:C.card,borderRadius:14,border:"1px solid "+m.color+"55",padding:"14px 16px",marginBottom:14}}>
+            <div style={{fontSize:13,fontWeight:500,color:C.t1,marginBottom:4}}>Set weekly allowance</div>
+            <div style={{fontSize:12,color:C.t3,marginBottom:10}}>Only parents can change this. It affects how the savings goal timeline is calculated.</div>
+            <div style={{display:"flex",gap:8}}>
+              <input value={editAllowanceVal} onChange={e=>setEditAllowanceVal(e.target.value)} type="number" placeholder="Amount" style={{flex:1,background:"rgba(255,255,255,0.05)",border:"1px solid "+C.border,borderRadius:10,padding:"9px 12px",fontSize:14,color:C.t1,outline:"none"}}/>
+              <span style={{fontSize:14,color:C.t3,alignSelf:"center"}}>kr/week</span>
+              <button onClick={()=>{const a=parseInt(editAllowanceVal,10);if(a>0&&onUpdateAllowance){onUpdateAllowance(a);setEditAllowanceOpen(false);}}} style={{background:m.color,border:"none",borderRadius:10,padding:"9px 16px",fontSize:13,fontWeight:500,color:"#fff",cursor:"pointer"}}>Save</button>
+            </div>
+          </div>
+        )}
+        <div style={{background:C.card,borderRadius:14,padding:"14px 16px",border:"1px solid "+C.border}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+            <div style={{fontSize:13,color:C.t2}}>Monthly spending</div>
+            <div style={{fontSize:13,fontWeight:500,color:m.statusColor}}>{Math.round((m.spendMonth/m.spendLimit)*100)+"% used"}</div>
+          </div>
+          <Bar value={m.spendMonth} max={m.spendLimit} color={m.color} height={7}/>
+          <div style={{display:"flex",justifyContent:"space-between",marginTop:6,fontSize:12,color:C.t3}}><span>{fmt(m.spendMonth)+" kr spent"}</span><span>{fmt(m.spendLimit)+" kr limit"}</span></div>
+        </div>
       </div>
       <div style={{display:"flex",background:C.surface,borderBottom:"1px solid "+C.border}}>{["activity","savings","cards"].map(t=><button key={t} onClick={()=>setTab(t)} style={{flex:1,background:"none",border:"none",color:tab===t?m.color:C.t2,borderBottom:tab===t?"2px solid "+m.color:"2px solid transparent",padding:"12px 0",fontSize:13,fontWeight:tab===t?500:400,cursor:"pointer",textTransform:"capitalize"}}>{t}</button>)}</div>
-      <div style={{padding:20}}>
-        {tab==="activity"&&m.transactions.map((tx,i)=>                <div key={i} onClick={()=>onTx(tx,m)} onMouseEnter={e=>e.currentTarget.style.background=C.cardHover} onMouseLeave={e=>e.currentTarget.style.background=C.card} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 14px",background:C.card,borderRadius:12,marginBottom:8,border:"1px solid "+C.border,cursor:"pointer"}}><div><div style={{fontSize:14,fontWeight:500}}>{tx.merchant}</div><div style={{fontSize:12,color:C.t3}}>{tx.cat+" - "+tx.date}</div></div><div style={{display:"flex",alignItems:"center",gap:6}}><div style={{fontSize:15,fontWeight:500,color:C.red}}>{fmt(tx.amount)+" kr"}</div><div style={{color:C.t3}}>{">"}</div></div></div>)}
-        {tab==="savings"&&(<div>
-          <div onClick={()=>onGoal(m)} onMouseEnter={e=>e.currentTarget.style.background=C.cardHover} onMouseLeave={e=>e.currentTarget.style.background=C.card} style={{background:C.card,borderRadius:16,border:"1px solid "+C.border,padding:16,cursor:"pointer",marginBottom:12}}>
-            <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:14}}><div style={{width:46,height:46,borderRadius:14,background:g.color+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,overflow:"hidden"}}>{g.photo?<img src={g.photo} alt={g.name} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:g.emoji}</div><div style={{flex:1}}><div style={{fontSize:15,fontWeight:500,color:C.t1}}>{g.name}</div><div style={{fontSize:12,color:C.t3,marginTop:2}}>{g.desc.slice(0,48)+"..."}</div></div><div style={{color:C.t3,fontSize:18}}>{">"}</div></div>
-            <Bar value={g.saved} max={g.target} color={g.color} height={5}/>
-            <div style={{display:"flex",justifyContent:"space-between",marginTop:8,fontSize:13,color:C.t2}}><span>{fmt(g.saved)+" kr saved"}</span><span style={{color:g.color,fontWeight:500}}>{goalPct+"%"}</span></div>
+      <div style={{padding:"20px 20px 40px"}}>
+        {tab==="activity"&&m.transactions.map((tx,i)=><div key={i} onClick={()=>onTx(tx,m)} onMouseEnter={e=>e.currentTarget.style.background=C.cardHover} onMouseLeave={e=>e.currentTarget.style.background=C.card} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 14px",background:C.card,borderRadius:12,marginBottom:8,border:"1px solid "+C.border,cursor:"pointer"}}><div><div style={{fontSize:14,fontWeight:500}}>{tx.merchant}</div><div style={{fontSize:12,color:C.t3}}>{tx.cat+" - "+tx.date}</div></div><div style={{display:"flex",alignItems:"center",gap:6}}><div style={{fontSize:15,fontWeight:500,color:C.red}}>{fmt(tx.amount)+" kr"}</div><div style={{color:C.t3}}>{">"}</div></div></div>)}
+        {tab==="savings"&&(
+          <div>
+            {/* ── Personal goals ── */}
+            {secLabel("Personal goals")}
+            <div onClick={()=>onGoal(m)} onMouseEnter={e=>e.currentTarget.style.background=C.cardHover} onMouseLeave={e=>e.currentTarget.style.background=C.card}
+              style={{background:C.card,borderRadius:16,border:"1px solid "+C.border,padding:16,cursor:"pointer",marginBottom:8}}>
+              <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:14}}>
+                <div style={{width:46,height:46,borderRadius:14,background:g.color+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,overflow:"hidden"}}>
+                  {g.photo?<img src={g.photo} alt={g.name} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:g.emoji}
+                </div>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:15,fontWeight:500,color:C.t1}}>{g.name}</div>
+                  <div style={{fontSize:12,color:C.t3,marginTop:2}}>{g.desc.slice(0,48)+"..."}</div>
+                </div>
+                <div style={{color:C.t3,fontSize:18}}>›</div>
+              </div>
+              <Bar value={g.saved} max={g.target} color={g.color} height={5}/>
+              <div style={{display:"flex",justifyContent:"space-between",marginTop:8,fontSize:13,color:C.t2}}>
+                <span>{fmt(g.saved)+" kr saved"}</span>
+                <span style={{color:g.color,fontWeight:500}}>{goalPct+"%"}</span>
+              </div>
+            </div>
+
+            {/* ── Family / collective (parents only) ── */}
+            {isParent&&buffer&&(
+              <>
+                {secLabel("Family accounts")}
+                {summerHoliday&&(()=>{const shPct=Math.round((summerHoliday.saved/summerHoliday.target)*100);return(
+                  <div onClick={onSH} onMouseEnter={e=>e.currentTarget.style.background=C.cardHover} onMouseLeave={e=>e.currentTarget.style.background=C.card}
+                    style={{background:C.card,borderRadius:16,border:"1px solid "+C.border,padding:16,cursor:"pointer",marginBottom:8}}>
+                    <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:14}}>
+                      <div style={{width:46,height:46,borderRadius:14,background:summerHoliday.color+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,overflow:"hidden",flexShrink:0}}>
+                        {summerHoliday.photo?<img src={summerHoliday.photo} alt={summerHoliday.name} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:summerHoliday.emoji}
+                      </div>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:15,fontWeight:500,color:C.t1}}>{summerHoliday.name}</div>
+                        <div style={{fontSize:12,color:C.t3,marginTop:2}}>{summerHoliday.desc.slice(0,48)+"..."}</div>
+                      </div>
+                      <div style={{color:C.t3,fontSize:18}}>›</div>
+                    </div>
+                    <Bar value={summerHoliday.saved} max={summerHoliday.target} color={summerHoliday.color} height={5}/>
+                    <div style={{display:"flex",justifyContent:"space-between",marginTop:8,fontSize:13,color:C.t2}}>
+                      <span>{fmt(summerHoliday.saved)+" kr saved"}</span>
+                      <span style={{color:summerHoliday.color,fontWeight:500}}>{shPct+"%"}</span>
+                    </div>
+                  </div>
+                );})()}
+                {savRow("🛟","Buffer account","Joint emergency fund · Both adults",fmt(buffer.balance)+" kr","+"+fmt(buffer.monthly)+" kr/mo",onBuf,"#7C6FFF")}
+                {childFund&&savRow("🌱",childFund.name,"Long-term · 0–18 fund",fmt(childFund.balance)+" kr","+"+fmt(childFund.monthly)+" kr/mo",onCF,"#F472B6")}
+                {lucasFund&&savRow("🌱",lucasFund.name,"Long-term · 0–18 fund",fmt(lucasFund.balance)+" kr","+"+fmt(lucasFund.monthly)+" kr/mo",onLucasCF,"#34D399")}
+              </>
+            )}
+
+            {/* ── Child's own fund ── */}
+            {!isParent&&childFund&&(
+              <>
+                {secLabel("My fund")}
+                <div onClick={onChildFund} onMouseEnter={e=>e.currentTarget.style.background=C.cardHover} onMouseLeave={e=>e.currentTarget.style.background=C.card}
+                  style={{background:C.card,borderRadius:16,border:"1px solid "+m.color+"4d",padding:16,cursor:"pointer"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:14}}>
+                    <div style={{width:46,height:46,borderRadius:14,background:m.color+"26",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>🌱</div>
+                    <div style={{flex:1}}><div style={{fontSize:15,fontWeight:500,color:C.t1}}>{childFund.name}</div><div style={{fontSize:12,color:C.t3,marginTop:2}}>Long-term · 0–18</div></div>
+                    <div style={{fontSize:14,fontWeight:500,color:m.color}}>{fmt(childFund.balance)+" kr"}</div>
+                    <div style={{color:C.t3,fontSize:14,marginLeft:2}}>›</div>
+                  </div>
+                  <Bar value={childFund.balance} max={childFund.balance+childFund.monthly*12} color={m.color} height={5}/>
+                </div>
+              </>
+            )}
           </div>
-          {m.role==="Child"&&childFund&&<div onClick={onChildFund} onMouseEnter={e=>e.currentTarget.style.background=C.cardHover} onMouseLeave={e=>e.currentTarget.style.background=C.card} style={{background:C.card,borderRadius:16,border:"1px solid rgba(244,114,182,0.3)",padding:16,cursor:"pointer"}}><div style={{display:"flex",alignItems:"center",gap:12,marginBottom:14}}><div style={{width:46,height:46,borderRadius:14,background:"rgba(244,114,182,0.15)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>{"🌱"}</div><div style={{flex:1}}><div style={{fontSize:15,fontWeight:500,color:C.t1}}>{"Maja's 0-18 fund"}</div></div><div style={{color:C.t3,fontSize:18}}>{">"}</div></div><Bar value={childFund.balance} max={childFund.balance+childFund.monthly*12} color="#F472B6" height={5}/></div>}
-        </div>)}
+        )}
         {tab==="cards"&&Array.from({length:m.cards}).map((_,i)=><div key={i} style={{background:m.colorSoft,border:"1px solid "+m.color+"44",borderRadius:14,padding:16,marginBottom:10}}><div style={{fontSize:12,color:C.t3,marginBottom:6}}>Resurs Family Card</div><div style={{fontSize:15,fontWeight:500,letterSpacing:2}}>{"**** **** **** "+(3700+i*13)}</div><div style={{display:"flex",justifyContent:"space-between",marginTop:8,fontSize:12,color:C.t2}}><span>{"Expires 12/"+(26+i)}</span><Badge label="Active" color={m.color} bg={m.colorSoft}/></div></div>)}
       </div>
     </div>
   );
 }
 
-function ManageMembers({ members, onBack, onSelect, onRemove, onFreeze }) {
-  const [showInvite,setShowInvite]=useState(false);
-  const [inviteRole,setInviteRole]=useState("Member");
+function ManageMembers({ members, onBack, onSelect, onRemove, onFreeze, onInvite, onUpdateAllowance=null }) {
+  const parents=members.filter(m=>m.role==="Parent");
+  const children=members.filter(m=>m.role==="Child");
+  const [allowanceEdit,setAllowanceEdit]=useState<{[id:number]:string}>({});
+  const [allowanceOpen,setAllowanceOpen]=useState<number|null>(null);
+  const renderCard=(m)=>{
+    const p=Math.round((m.spendMonth/m.spendLimit)*100);
+    const isChild=m.role==="Child";
+    const currentAllowance=m.savingsGoal?.allowance;
+    const editVal=allowanceEdit[m.id]??String(currentAllowance||100);
+    return (
+      <div key={m.id} style={{background:C.card,borderRadius:16,border:"1px solid "+C.border,padding:"16px",marginBottom:10}}>
+        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}>
+          <Avatar m={m} size={46}/>
+          <div style={{flex:1}}>
+            <div style={{fontSize:15,fontWeight:600,color:C.t1}}>{m.fullName||m.name}</div>
+            <div style={{display:"flex",alignItems:"center",gap:6,marginTop:3}}>
+              <div style={{fontSize:12,color:C.t3}}>{m.role}</div>
+              <div style={{width:3,height:3,borderRadius:"50%",background:C.t3}}/>
+              <div style={{fontSize:12,color:C.t3}}>{m.cards+" card"+(m.cards!==1?"s":"")}</div>
+            </div>
+          </div>
+          <Badge label={m.status} color={m.statusColor} bg={m.statusBg}/>
+        </div>
+        <div style={{display:"flex",justifyContent:"space-between",fontSize:12,color:C.t3,marginBottom:5}}>
+          <span>{fmt(m.spendMonth)+" kr spent"}</span>
+          <span style={{color:m.statusColor,fontWeight:500}}>{p+"%"}</span>
+          <span>{"limit "+fmt(m.spendLimit)+" kr"}</span>
+        </div>
+        <Bar value={m.spendMonth} max={m.spendLimit} color={m.statusColor}/>
+        {isChild&&currentAllowance!=null&&(
+          <div style={{marginTop:12,borderTop:"1px solid "+C.border,paddingTop:12}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+              <div>
+                <div style={{fontSize:12,color:C.t3,marginBottom:2}}>Weekly allowance</div>
+                <div style={{fontSize:14,fontWeight:500,color:m.color}}>{fmt(currentAllowance)+" kr / week"}</div>
+              </div>
+              <button onClick={()=>setAllowanceOpen(allowanceOpen===m.id?null:m.id)} style={{background:m.color+"18",border:"1px solid "+m.color+"44",borderRadius:8,padding:"5px 12px",fontSize:12,fontWeight:500,color:m.color,cursor:"pointer"}}>
+                {allowanceOpen===m.id?"Cancel":"Edit"}
+              </button>
+            </div>
+            {allowanceOpen===m.id&&(
+              <div style={{display:"flex",gap:8,marginTop:10}}>
+                <input value={editVal} onChange={e=>setAllowanceEdit(prev=>({...prev,[m.id]:e.target.value}))} type="number" placeholder="kr/week" style={{flex:1,background:"rgba(255,255,255,0.05)",border:"1px solid "+C.border,borderRadius:10,padding:"8px 12px",fontSize:13,color:C.t1,outline:"none"}}/>
+                <span style={{fontSize:13,color:C.t3,alignSelf:"center"}}>kr/week</span>
+                <button onClick={()=>{const a=parseInt(editVal,10);if(a>0&&onUpdateAllowance){onUpdateAllowance(m.id,a);setAllowanceOpen(null);}}} style={{background:m.color,border:"none",borderRadius:10,padding:"8px 14px",fontSize:13,fontWeight:500,color:"#fff",cursor:"pointer"}}>Save</button>
+              </div>
+            )}
+          </div>
+        )}
+        <div style={{display:"flex",gap:8,marginTop:14}}>
+          <button onClick={()=>onSelect(m)} style={{flex:1,background:C.accentSoft,border:"1px solid "+C.accent+"44",borderRadius:10,padding:"9px 0",fontSize:13,fontWeight:500,color:C.accent,cursor:"pointer"}}>View profile</button>
+          <button onClick={()=>onFreeze(m.id)} style={{flex:1,background:"none",border:"1px solid "+C.border,borderRadius:10,padding:"9px 0",fontSize:13,fontWeight:500,color:m.status==="Frozen"?C.green:C.t2,cursor:"pointer"}}>{m.status==="Frozen"?"Unfreeze":"Freeze"}</button>
+          {m.id!==1&&<button onClick={()=>onRemove(m.id)} style={{width:38,background:"none",border:"1px solid "+C.border,borderRadius:10,fontSize:15,cursor:"pointer",color:C.t3}}>🗑</button>}
+        </div>
+      </div>
+    );
+  };
+  return (
+    <div style={{background:C.bg,minHeight:"100%",color:C.t1,padding:"20px 20px 40px",position:"relative"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+        <div style={{fontSize:12,fontWeight:600,color:C.t3,textTransform:"uppercase",letterSpacing:"0.07em"}}>Parents</div>
+        <button type="button" onClick={onInvite} style={{width:30,height:30,borderRadius:"50%",background:C.accent,border:"none",color:"#fff",fontSize:18,fontWeight:300,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",padding:0,flexShrink:0}}>+</button>
+      </div>
+      {parents.map(m=>renderCard(m))}
+      <div style={{fontSize:12,fontWeight:600,color:C.t3,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:12,marginTop:8}}>Children</div>
+      {children.map(m=>renderCard(m))}
+    </div>
+  );
+}
+
+function AllSavingsGoals({ members, buffer, childFund, lucasFund, summerHoliday, onBack, onBuf, onCF, onLucasCF, onSH, onGoal }) {
+  const [showCreate,setShowCreate]=useState(false);
+  const shPct=summerHoliday?Math.round((summerHoliday.saved/summerHoliday.target)*100):0;
+  const row=(icon,label,sub,right,rightSub,onClick,color)=>(
+    <div onClick={onClick} style={{cursor:"pointer",display:"flex",alignItems:"center",gap:10,background:C.card,borderRadius:14,border:"1px solid "+C.border,padding:"14px 16px"}} onMouseEnter={e=>e.currentTarget.style.opacity="0.75"} onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
+      <span style={{fontSize:20}}>{icon}</span>
+      <div style={{flex:1}}><div style={{fontSize:13,fontWeight:500,color:C.t1}}>{label}</div><div style={{fontSize:13,color:C.t3,marginTop:2}}>{sub}</div></div>
+      <div style={{textAlign:"right"}}><div style={{fontSize:13,fontWeight:500,color}}>{right}</div><div style={{fontSize:13,color:C.t3}}>{rightSub}</div></div>
+    </div>
+  );
+  if(showCreate) return <CreateSavingsFlow members={members} onBack={()=>setShowCreate(false)}/>;
   return (
     <div style={{background:C.bg,minHeight:"100%",color:C.t1}}>
-      <div style={{background:C.surface,padding:"20px 20px 20px",borderBottom:"1px solid "+C.border}}>
-        <div style={{fontSize:20,fontWeight:500}}>Manage members</div>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"flex-end",padding:"20px 20px 0"}}>
+        <button onClick={()=>setShowCreate(true)} style={{width:32,height:32,borderRadius:"50%",background:C.accent,border:"none",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#fff",fontSize:20,lineHeight:1}}>+</button>
       </div>
-      <div style={{padding:20}}>
-        <div style={{background:C.card,borderRadius:16,border:"1px solid "+C.border,overflow:"hidden",marginBottom:16}}>
-          {members.map((m,i)=>(
-            <div key={m.id} style={{padding:"14px 16px",borderBottom:i<members.length-1?"1px solid "+C.border:"none"}}>
-              <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}><Avatar m={m} size={40}/><div style={{flex:1}}><div style={{fontSize:14,fontWeight:500,color:C.t1}}>{m.name}</div><div style={{fontSize:12,color:C.t3}}>{m.role}</div></div><Badge label={m.status} color={m.statusColor} bg={m.statusBg}/></div>
-              <div style={{display:"flex",gap:8}}>
-                <button onClick={()=>onSelect(m)} style={{flex:1,background:C.accentSoft,border:"1px solid rgba(124,111,255,0.27)",borderRadius:10,padding:"8px 0",fontSize:12,fontWeight:500,color:C.accent,cursor:"pointer"}}>View</button>
-                <button onClick={()=>onFreeze(m.id)} style={{flex:1,background:"rgba(255,255,255,0.05)",border:"1px solid "+C.border,borderRadius:10,padding:"8px 0",fontSize:12,fontWeight:500,color:C.t2,cursor:"pointer"}}>Freeze</button>
-                {m.role!=="Account owner"&&<button onClick={()=>onRemove(m.id)} style={{background:C.redSoft,border:"1px solid rgba(248,113,113,0.2)",borderRadius:10,padding:"8px 12px",fontSize:12,fontWeight:500,color:C.red,cursor:"pointer"}}>Remove</button>}
+      <div style={{padding:"12px 20px 40px"}}>
+        <div style={{fontSize:13,fontWeight:500,color:C.t3,textTransform:"uppercase",letterSpacing:1,marginBottom:12}}>Family goals</div>
+        <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:20}}>
+          {summerHoliday&&(
+            <div onClick={onSH} style={{cursor:"pointer",background:C.card,borderRadius:14,border:"1px solid "+C.border,padding:"14px 16px"}} onMouseEnter={e=>e.currentTarget.style.opacity="0.75"} onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
+              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
+                <div style={{width:36,height:36,borderRadius:10,background:summerHoliday.color+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,overflow:"hidden",flexShrink:0}}>{summerHoliday.photo?<img src={summerHoliday.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>:summerHoliday.emoji}</div>
+                <div style={{flex:1}}><div style={{fontSize:13,fontWeight:500,color:C.t1}}>{summerHoliday.name}</div><div style={{fontSize:13,color:C.t3,marginTop:2}}>Family goal · Anna & Erik</div></div>
+                <div style={{textAlign:"right"}}><div style={{fontSize:13,fontWeight:500,color:summerHoliday.color}}>{shPct+"%"}</div><div style={{fontSize:13,color:C.t3}}>{fmt(summerHoliday.saved)+" / "+fmt(summerHoliday.target)}</div></div>
               </div>
+              <Bar value={summerHoliday.saved} max={summerHoliday.target} color={summerHoliday.color}/>
             </div>
-          ))}
+          )}
         </div>
-        <button onClick={()=>setShowInvite(v=>!v)} style={{width:"100%",background:C.accentSoft,border:"1px dashed rgba(124,111,255,0.4)",borderRadius:14,padding:14,fontSize:14,fontWeight:500,color:C.accent,cursor:"pointer"}}>+ Invite a family member</button>
-        {showInvite&&(<div style={{background:C.card,borderRadius:14,border:"1px solid "+C.border,padding:16,marginTop:12}}><div style={{display:"flex",gap:8,marginBottom:12}}>{["Member","Child"].map(r=><button key={r} onClick={()=>setInviteRole(r)} style={{flex:1,background:inviteRole===r?C.accentSoft:"rgba(255,255,255,0.04)",border:"1px solid "+(inviteRole===r?"rgba(124,111,255,0.4)":C.border),borderRadius:10,padding:"8px 0",fontSize:13,color:inviteRole===r?C.accent:C.t2,cursor:"pointer",fontWeight:inviteRole===r?500:400}}>{r}</button>)}</div><button onClick={()=>setShowInvite(false)} style={{width:"100%",background:C.accent,border:"none",borderRadius:10,padding:11,fontSize:14,fontWeight:500,color:"#fff",cursor:"pointer"}}>Send invite link</button></div>)}
+        <div style={{fontSize:13,fontWeight:500,color:C.t3,textTransform:"uppercase",letterSpacing:1,marginBottom:12}}>Collective accounts</div>
+        <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:20}}>
+          {row("🛟","Buffer account","Joint · Adults",fmt(buffer.balance)+" kr","+"+fmt(buffer.monthly)+" kr/mo",onBuf,"#7C6FFF")}
+          {row("🌱",childFund.name,"Long-term · Adults manage",fmt(childFund.balance)+" kr","+"+fmt(childFund.monthly)+" kr/mo",onCF,"#F472B6")}
+          {row("🌱",lucasFund.name,"Long-term · Adults manage",fmt(lucasFund.balance)+" kr","+"+fmt(lucasFund.monthly)+" kr/mo",onLucasCF,"#FBBF24")}
+        </div>
+        <div style={{fontSize:13,fontWeight:500,color:C.t3,textTransform:"uppercase",letterSpacing:1,marginBottom:12}}>Personal goals</div>
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          {members.map(m=>{const g=m.savingsGoal,p=Math.round((g.saved/g.target)*100);return(
+            <div key={m.id} onClick={()=>onGoal(m)} style={{cursor:"pointer",background:C.card,borderRadius:14,border:"1px solid "+C.border,padding:"14px 16px"}} onMouseEnter={e=>e.currentTarget.style.opacity="0.75"} onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <div style={{width:26,height:26,borderRadius:7,background:g.color+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,overflow:"hidden",flexShrink:0}}>{g.photo?<img src={g.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>:g.emoji}</div>
+                  <Avatar m={m} size={24}/>
+                  <span style={{fontSize:13,color:C.t1,fontWeight:500}}>{g.name}</span>
+                </div>
+                <span style={{fontSize:13,color:g.color,fontWeight:600}}>{p+"%"}</span>
+              </div>
+              <Bar value={g.saved} max={g.target} color={g.color}/>
+              <div style={{display:"flex",justifyContent:"space-between",marginTop:6,fontSize:13,color:C.t3}}><span>{fmt(g.saved)+" kr"}</span><span>{fmt(g.target)+" kr"}</span></div>
+            </div>
+          );})}
+        </div>
       </div>
     </div>
   );
@@ -1876,7 +3381,7 @@ function SavingsManage({ members, buffer, childFund, onBack, onAutoSave, onGoal,
       </div>
       <div style={{padding:"20px 20px 40px"}}>
         <div style={{marginBottom:20}}>
-          <div style={{fontSize:11,fontWeight:500,color:C.t3,textTransform:"uppercase",letterSpacing:1,marginBottom:10}}>Auto-save</div>
+          <div style={{fontSize:13,fontWeight:500,color:C.t3,textTransform:"uppercase",letterSpacing:1,marginBottom:10}}>Auto-save</div>
           <div style={{background:C.card,borderRadius:16,border:"1px solid "+C.border,overflow:"hidden"}}>
             <button onClick={onAutoSave} style={{width:"100%",background:"none",border:"none",display:"flex",alignItems:"center",gap:14,padding:"14px 16px",cursor:"pointer",textAlign:"left"}}>
               <span style={{fontSize:22,width:36,textAlign:"center"}}>🔄</span>
@@ -1886,7 +3391,7 @@ function SavingsManage({ members, buffer, childFund, onBack, onAutoSave, onGoal,
           </div>
         </div>
         <div style={{marginBottom:20}}>
-          <div style={{fontSize:11,fontWeight:500,color:C.t3,textTransform:"uppercase",letterSpacing:1,marginBottom:10}}>Joint accounts</div>
+          <div style={{fontSize:13,fontWeight:500,color:C.t3,textTransform:"uppercase",letterSpacing:1,marginBottom:10}}>Joint accounts</div>
           <div style={{background:C.card,borderRadius:16,border:"1px solid "+C.border,overflow:"hidden"}}>
             <button onClick={onBuffer} style={{width:"100%",background:"none",border:"none",display:"flex",alignItems:"center",gap:14,padding:"14px 16px",cursor:"pointer",textAlign:"left",borderBottom:"1px solid "+C.border}}>
               <div style={{width:36,height:36,borderRadius:"50%",background:"rgba(124,111,255,0.2)",border:"2px solid #7C6FFF",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>🛟</div>
@@ -1895,13 +3400,13 @@ function SavingsManage({ members, buffer, childFund, onBack, onAutoSave, onGoal,
             </button>
             <button onClick={onChildFund} style={{width:"100%",background:"none",border:"none",display:"flex",alignItems:"center",gap:14,padding:"14px 16px",cursor:"pointer",textAlign:"left"}}>
               <div style={{width:36,height:36,borderRadius:"50%",background:"rgba(244,114,182,0.2)",border:"2px solid #F472B6",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>🌱</div>
-              <span style={{flex:1}}><span style={{display:"block",fontSize:14,fontWeight:500,color:C.t1}}>{"Maja's 0–18 fund"}</span><span style={{display:"block",fontSize:12,color:C.t3}}>{fmt(childFund.balance)+" kr"}</span></span>
+              <span style={{flex:1}}><span style={{display:"block",fontSize:14,fontWeight:500,color:C.t1}}>{childFund.name}</span><span style={{display:"block",fontSize:12,color:C.t3}}>{fmt(childFund.balance)+" kr"}</span></span>
               <span style={{fontSize:13,color:C.t3}}>{">"}</span>
             </button>
           </div>
         </div>
         <div>
-          <div style={{fontSize:11,fontWeight:500,color:C.t3,textTransform:"uppercase",letterSpacing:1,marginBottom:10}}>Individual goals</div>
+          <div style={{fontSize:13,fontWeight:500,color:C.t3,textTransform:"uppercase",letterSpacing:1,marginBottom:10}}>Individual goals</div>
           <div style={{background:C.card,borderRadius:16,border:"1px solid "+C.border,overflow:"hidden"}}>
             {members.map((m,i)=>{const g=m.savingsGoal,pct=Math.round((g.saved/g.target)*100);return(
               <button key={m.id} onClick={()=>onGoal(m)} style={{width:"100%",background:"none",border:"none",display:"flex",alignItems:"center",gap:14,padding:"14px 16px",cursor:"pointer",textAlign:"left",borderBottom:i<members.length-1?"1px solid "+C.border:"none"}}>
@@ -1933,15 +3438,21 @@ function DealsPage({ onBack, deals }) {
       <div style={{padding:"8px 20px 40px",display:"flex",flexDirection:"column",gap:12}}>
         {filtered.map(deal=>(
           <div key={deal.id} style={{background:C.card,borderRadius:18,border:"1px solid "+C.border,overflow:"hidden"}}>
-            <div style={{background:deal.color+"18",padding:"12px 16px",display:"flex",alignItems:"center",gap:10}}>
-              <div style={{width:36,height:36,borderRadius:10,background:deal.colorSoft,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>{deal.logo}</div>
-              <div style={{flex:1}}><div style={{fontSize:13,fontWeight:500,color:C.t1}}>{deal.partner}</div><span style={{fontSize:10,fontWeight:500,color:deal.tagColor,background:deal.tagColor+"18",borderRadius:999,padding:"2px 7px"}}>{deal.tag}</span></div>
-              <div style={{fontSize:13,fontWeight:500,color:deal.color}}>{deal.saving}</div>
+            <div style={{position:"relative",height:140}}>
+              <img src={deal.photo} alt={deal.partner} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+              <div style={{position:"absolute",inset:0,background:"linear-gradient(to bottom,rgba(0,0,0,0.15) 0%,rgba(0,0,0,0.72) 100%)"}}/>
+              <div style={{position:"absolute",bottom:0,left:0,right:0,padding:"12px 16px",display:"flex",alignItems:"flex-end",justifyContent:"space-between"}}>
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  <div style={{width:38,height:38,borderRadius:11,background:deal.colorSoft,border:"1.5px solid "+deal.color+"66",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>{deal.logo}</div>
+                  <div><div style={{fontSize:14,fontWeight:600,color:"#fff"}}>{deal.partner}</div><span style={{fontSize:12,fontWeight:500,color:deal.tagColor,background:"rgba(0,0,0,0.45)",borderRadius:999,padding:"2px 7px"}}>{deal.tag}</span></div>
+                </div>
+                <div style={{fontSize:13,fontWeight:600,color:deal.color,background:"rgba(0,0,0,0.5)",borderRadius:8,padding:"4px 9px"}}>{deal.saving}</div>
+              </div>
             </div>
             <div style={{padding:"14px 16px"}}>
               <div style={{fontSize:15,fontWeight:500,color:C.t1,marginBottom:6}}>{deal.title}</div>
               <div style={{fontSize:13,color:C.t2,lineHeight:1.6,marginBottom:14}}>{deal.desc}</div>
-              <button style={{width:"100%",background:deal.colorSoft,border:"1px solid "+deal.color+"44",borderRadius:12,padding:"11px 0",fontSize:13,fontWeight:500,color:deal.color,cursor:"pointer"}}>Activate offer</button>
+              <button style={{width:"100%",background:deal.colorSoft,border:"1px solid "+deal.color+"44",borderRadius:12,padding:"11px 0",fontSize:13,fontWeight:500,color:deal.color,cursor:"pointer",fontFamily:"inherit"}}>Activate offer</button>
             </div>
           </div>
         ))}
@@ -2028,7 +3539,7 @@ function SubscriptionsPage({ members, onBack }) {
 
   return (
     <div style={{background:C.bg,minHeight:"100%",color:C.t1}}>
-      <div style={{background:"linear-gradient(160deg,rgba(124,111,255,0.2) 0%,#0D0F1A 70%)",padding:"20px 20px 24px",borderBottom:"1px solid "+C.border}}>
+      <div style={{background:"linear-gradient(160deg,"+C.accent+"33 0%,"+C.bg+" 70%)",padding:"20px 20px 24px",borderBottom:"1px solid "+C.border}}>
         {/* Tip card */}
         <div style={{background:tip.bg,borderRadius:18,border:"1px solid "+tip.border,padding:"16px 18px",marginBottom:14}}>
           <div style={{display:"flex",alignItems:"flex-start",gap:12}}>
@@ -2058,7 +3569,7 @@ function SubscriptionsPage({ members, onBack }) {
         {showStats&&(
           <div style={{marginTop:12,display:"flex",flexDirection:"column",gap:10}}>
             <div style={{background:"rgba(255,255,255,0.04)",borderRadius:14,border:"1px solid "+C.border,padding:"12px 14px"}}>
-              <div style={{fontSize:11,color:C.t3,marginBottom:10}}>Cost per member</div>
+              <div style={{fontSize:13,color:C.t3,marginBottom:10}}>Cost per member</div>
               {[...memberTotals.map(m=>({name:m.name,color:m.color,total:m.total})),{name:"Family shared",color:C.accent,total:familyTotal}].filter(r=>r.total>0).map((row,i)=>(
                 <div key={i} style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
                   <div style={{fontSize:12,color:C.t2,width:90,flexShrink:0,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{row.name}</div>
@@ -2071,14 +3582,14 @@ function SubscriptionsPage({ members, onBack }) {
             </div>
             <div style={{display:"flex",gap:8}}>
               {topSub&&<div style={{flex:1,background:"rgba(255,255,255,0.04)",borderRadius:12,border:"1px solid "+C.border,padding:"10px 12px"}}>
-                <div style={{fontSize:10,color:C.t3,marginBottom:3}}>Most expensive</div>
+                <div style={{fontSize:12,color:C.t3,marginBottom:3}}>Most expensive</div>
                 <div style={{fontSize:13,fontWeight:500,color:C.t1}}>{topSub.emoji+" "+topSub.name}</div>
-                <div style={{fontSize:11,color:C.t3}}>{fmt(topSub.amount)+" kr / mo"}</div>
+                <div style={{fontSize:13,color:C.t3}}>{fmt(topSub.amount)+" kr / mo"}</div>
               </div>}
               {pausedSaving>0&&<div style={{flex:1,background:"rgba(52,211,153,0.07)",borderRadius:12,border:"1px solid rgba(52,211,153,0.2)",padding:"10px 12px"}}>
-                <div style={{fontSize:10,color:C.t3,marginBottom:3}}>Saved by pausing</div>
+                <div style={{fontSize:12,color:C.t3,marginBottom:3}}>Saved by pausing</div>
                 <div style={{fontSize:13,fontWeight:500,color:C.green}}>{fmt(pausedSaving)+" kr"}</div>
-                <div style={{fontSize:11,color:C.t3}}>this month</div>
+                <div style={{fontSize:13,color:C.t3}}>this month</div>
               </div>}
             </div>
           </div>
@@ -2101,7 +3612,7 @@ function SubscriptionsPage({ members, onBack }) {
                 <div style={{width:34,height:34,borderRadius:10,background:sub.color+"22",border:"1.5px solid "+sub.color+"44",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>{sub.emoji}</div>
                 <div style={{flex:1,minWidth:0}}>
                   <div style={{fontSize:13,fontWeight:500,color:C.t1}}>{sub.name}</div>
-                  <div style={{fontSize:11,color:C.t3,marginTop:1}}>{getMemberName(sub.member)+" · "+(sub.active?"Next: "+sub.nextBill:"Paused")}</div>
+                  <div style={{fontSize:13,color:C.t3,marginTop:1}}>{getMemberName(sub.member)+" · "+(sub.active?"Next: "+sub.nextBill:"Paused")}</div>
                 </div>
                 <div style={{fontSize:13,fontWeight:500,color:sub.active?C.t1:C.t3,marginRight:6}}>{fmt(sub.amount)+" kr"}</div>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={C.t3} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{transform:isOpen?"rotate(180deg)":"rotate(0deg)",transition:"transform 0.2s",flexShrink:0}}><polyline points="6 9 12 15 18 9"/></svg>
@@ -2109,12 +3620,12 @@ function SubscriptionsPage({ members, onBack }) {
               {isOpen&&(
                 <div style={{background:"rgba(255,255,255,0.02)",borderRadius:"0 0 12px 12px",border:"1px solid "+C.border,borderTop:"none",padding:"12px 14px",marginBottom:6}}>
                   <div style={{display:"flex",gap:8,marginBottom:10}}>
-                    <div style={{flex:1,fontSize:11,color:C.t3}}>Category</div>
-                    <div style={{fontSize:11,color:C.t2}}>{sub.category}</div>
+                    <div style={{flex:1,fontSize:13,color:C.t3}}>Category</div>
+                    <div style={{fontSize:13,color:C.t2}}>{sub.category}</div>
                   </div>
                   <div style={{display:"flex",gap:8,marginBottom:14}}>
-                    <div style={{flex:1,fontSize:11,color:C.t3}}>Member</div>
-                    <span style={{fontSize:11,color:getMemberColor(sub.member),background:getMemberColor(sub.member)+"18",borderRadius:999,padding:"2px 8px"}}>{getMemberName(sub.member)}</span>
+                    <div style={{flex:1,fontSize:13,color:C.t3}}>Member</div>
+                    <span style={{fontSize:13,color:getMemberColor(sub.member),background:getMemberColor(sub.member)+"18",borderRadius:999,padding:"2px 8px"}}>{getMemberName(sub.member)}</span>
                   </div>
                   <div style={{display:"flex",gap:8}}>
                     <button onClick={e=>{e.stopPropagation();toggle(sub.id);}} style={{flex:1,background:sub.active?"rgba(251,191,36,0.1)":"rgba(52,211,153,0.1)",border:"1px solid "+(sub.active?"rgba(251,191,36,0.3)":"rgba(52,211,153,0.3)"),borderRadius:10,padding:"8px 0",fontSize:12,fontWeight:500,color:sub.active?C.amber:C.green,cursor:"pointer"}}>{sub.active?"Pause":"Resume"}</button>
@@ -2138,7 +3649,7 @@ function SubscriptionsPage({ members, onBack }) {
             <input value={newAmt} onChange={e=>setNewAmt(e.target.value)} placeholder="Monthly cost (kr)" type="number" style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid "+C.border,borderRadius:10,padding:"10px 12px",fontSize:13,color:C.t1,outline:"none",marginBottom:10,boxSizing:"border-box"}}/>
             <div style={{display:"flex",gap:8,marginBottom:10,flexWrap:"wrap"}}>
               {["Streaming","Music","Apps","Kids","Fitness"].map(cat=>(
-                <button key={cat} onClick={()=>setNewCat(cat)} style={{background:newCat===cat?C.accentSoft:"rgba(255,255,255,0.05)",border:"1px solid "+(newCat===cat?"rgba(124,111,255,0.5)":C.border),borderRadius:20,padding:"5px 12px",fontSize:11,color:newCat===cat?C.accent:C.t2,cursor:"pointer"}}>{cat}</button>
+                <button key={cat} onClick={()=>setNewCat(cat)} style={{background:newCat===cat?C.accentSoft:"rgba(255,255,255,0.05)",border:"1px solid "+(newCat===cat?"rgba(124,111,255,0.5)":C.border),borderRadius:20,padding:"5px 12px",fontSize:13,color:newCat===cat?C.accent:C.t2,cursor:"pointer"}}>{cat}</button>
               ))}
             </div>
             <select value={newMember} onChange={e=>setNewMember(e.target.value)} style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid "+C.border,borderRadius:10,padding:"10px 12px",fontSize:13,color:C.t1,outline:"none",marginBottom:14,boxSizing:"border-box"}}>
@@ -2157,25 +3668,164 @@ function SubscriptionsPage({ members, onBack }) {
 }
 
 // ── FAMILY HUB ────────────────────────────────────────────────────────────────
-function FamilyHub({ members, setMembers, buffer, setBuffer, childFund, setChildFund, onBack, onOpenChat, onOpenInsights, onSubPage, openMonthlyTrigger }) {
+const DATE_ORDER = ["Today","Yesterday","Mar 24","Mar 23","Mar 22","Mar 21","Mar 20","Mar 18"];
+function AllActivities({ members, onBack, onTx }) {
+  const allTx = members.flatMap(m => m.transactions.map(tx => ({...tx, member:m})));
+  const categories = ["All", ...Array.from(new Set(allTx.map(tx => tx.cat)))];
+  const [selCat, setSelCat] = useState("All");
+  const [selMember, setSelMember] = useState("All");
+  const [dateFilter, setDateFilter] = useState("All");
+  const [amountFilter, setAmountFilter] = useState("All");
+  const [sort, setSort] = useState<"newest"|"oldest"|"highest"|"lowest">("newest");
+  const [showFilters, setShowFilters] = useState(false);
+  const [search, setSearch] = useState("");
+
+  const activeCount = [selCat,selMember,dateFilter,amountFilter].filter(v=>v!=="All").length;
+
+  const filtered = allTx
+    .filter(tx => {
+      if (search && !tx.merchant.toLowerCase().includes(search.toLowerCase()) && !tx.cat.toLowerCase().includes(search.toLowerCase()) && !tx.member.name.toLowerCase().includes(search.toLowerCase()) && !tx.member.fullName.toLowerCase().includes(search.toLowerCase())) return false;
+      if (selCat !== "All" && tx.cat !== selCat) return false;
+      if (selMember !== "All" && tx.member.name !== selMember) return false;
+      if (dateFilter === "Today" && tx.date !== "Today") return false;
+      if (dateFilter === "Yesterday" && tx.date !== "Yesterday") return false;
+      if (dateFilter === "This week" && !["Today","Yesterday","Mar 24","Mar 23"].includes(tx.date)) return false;
+      const amt = Math.abs(tx.amount);
+      if (amountFilter === "Under 100 kr" && amt >= 100) return false;
+      if (amountFilter === "100–500 kr" && (amt < 100 || amt > 500)) return false;
+      if (amountFilter === "Over 500 kr" && amt <= 500) return false;
+      return true;
+    })
+    .sort((a,b) => {
+      if (sort === "highest") return Math.abs(b.amount) - Math.abs(a.amount);
+      if (sort === "lowest") return Math.abs(a.amount) - Math.abs(b.amount);
+      const ai = DATE_ORDER.indexOf(a.date), bi = DATE_ORDER.indexOf(b.date);
+      return sort === "newest" ? ai - bi : bi - ai;
+    });
+
+  const chip = (active:boolean, onClick:()=>void, label:any) => (
+    <button onClick={onClick} style={{flexShrink:0,display:"flex",alignItems:"center",gap:6,background:active?C.accent:C.card,border:"1px solid "+(active?C.accent:C.border),borderRadius:20,padding:"7px 14px",fontSize:13,fontWeight:active?600:400,color:active?"#fff":C.t2,cursor:"pointer",fontFamily:"inherit"}}>{label}</button>
+  );
+
+  const sortLabels:{[k:string]:string} = {newest:"Newest first",oldest:"Oldest first",highest:"Highest amount",lowest:"Lowest amount"};
+
+  return (
+    <div style={{display:"flex",flexDirection:"column",height:"100%"}}>
+      {/* Compact toolbar */}
+      <div style={{padding:"12px 16px 8px",display:"flex",alignItems:"center",gap:8}}>
+        <div style={{flex:1,display:"flex",alignItems:"center",gap:8,background:C.card,border:"1px solid "+C.border,borderRadius:20,padding:"8px 14px"}}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={C.t3} strokeWidth="2.5" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search transactions…" style={{flex:1,background:"none",border:"none",outline:"none",fontSize:13,color:C.t1,fontFamily:"inherit"}}/>
+          {search&&<button onClick={()=>setSearch("")} style={{background:"none",border:"none",color:C.t3,cursor:"pointer",padding:0,fontSize:14,lineHeight:1}}>✕</button>}
+        </div>
+        <button onClick={()=>setShowFilters(true)} style={{flexShrink:0,display:"flex",alignItems:"center",gap:6,background:activeCount>0?C.accent:C.card,border:"1px solid "+(activeCount>0?C.accent:C.border),borderRadius:20,padding:"8px 14px",fontSize:13,fontWeight:500,color:activeCount>0?"#fff":C.t2,cursor:"pointer",whiteSpace:"nowrap"}}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
+          {activeCount>0?"Filters ("+activeCount+")":"Filter"}
+        </button>
+      </div>
+
+      {/* Transaction list */}
+      <div style={{flex:1,overflowY:"auto",padding:"4px 16px 40px",scrollbarWidth:"none"}}>
+        <div style={{fontSize:13,color:C.t3,marginBottom:10,paddingTop:4}}>{filtered.length+" transactions"}</div>
+        {filtered.length===0&&<div style={{textAlign:"center",color:C.t3,padding:"40px 0",fontSize:13}}>No transactions found</div>}
+        {filtered.map((tx,i)=>(
+          <div key={i} onClick={()=>onTx(tx,tx.member)} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",background:C.card,borderRadius:14,marginBottom:8,border:"1px solid "+C.border,cursor:"pointer"}} onMouseEnter={e=>e.currentTarget.style.background=C.cardHover} onMouseLeave={e=>e.currentTarget.style.background=C.card}>
+            <Avatar m={tx.member} size={36}/>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:14,fontWeight:500,color:C.t1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{tx.merchant}</div>
+              <div style={{fontSize:12,color:C.t3,marginTop:2}}>{tx.member.name+" · "+tx.cat+" · "+tx.date}</div>
+            </div>
+            <div style={{fontSize:14,fontWeight:500,color:C.red,whiteSpace:"nowrap"}}>{Math.abs(tx.amount)+" kr"}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Filter bottom sheet */}
+      {showFilters&&(
+        <div onClick={()=>setShowFilters(false)} style={{position:"absolute",inset:0,background:"rgba(0,0,0,0.5)",zIndex:50,display:"flex",flexDirection:"column",justifyContent:"flex-end",borderRadius:36}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:C.surface,borderRadius:"20px 20px 0 0",padding:"16px 20px 32px",border:"1px solid "+C.border}}>
+            <div style={{width:36,height:4,borderRadius:999,background:C.border,margin:"0 auto 20px"}}/>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+              <div style={{fontSize:16,fontWeight:500,color:C.t1}}>Filters</div>
+              {activeCount>0&&<button onClick={()=>{setSelCat("All");setSelMember("All");setDateFilter("All");setAmountFilter("All");}} style={{background:"none",border:"none",color:C.accent,fontSize:13,cursor:"pointer",padding:0}}>Clear all</button>}
+            </div>
+
+            <div style={{fontSize:12,fontWeight:500,color:C.t3,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>Sort</div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:18}}>
+              {(Object.entries(sortLabels) as any[]).map(([k,v])=>chip(sort===k,()=>setSort(k),v))}
+            </div>
+
+            <div style={{fontSize:12,fontWeight:500,color:C.t3,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>Date</div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:18}}>
+              {["All","Today","Yesterday","This week"].map(f=>chip(dateFilter===f,()=>setDateFilter(f),f))}
+            </div>
+
+            <div style={{fontSize:12,fontWeight:500,color:C.t3,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>Amount</div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:18}}>
+              {["All","Under 100 kr","100–500 kr","Over 500 kr"].map(f=>chip(amountFilter===f,()=>setAmountFilter(f),f))}
+            </div>
+
+            <div style={{fontSize:12,fontWeight:500,color:C.t3,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>Member</div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:18}}>
+              {["All",...members.map(m=>m.name)].map(f=>chip(selMember===f,()=>setSelMember(f),
+                f==="All"?"All":<>{<Avatar m={members.find(m=>m.name===f)} size={18}/>}{f}</>
+              ))}
+            </div>
+
+            <div style={{fontSize:12,fontWeight:500,color:C.t3,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>Category</div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:20}}>
+              {categories.map(f=>chip(selCat===f,()=>setSelCat(f),f))}
+            </div>
+
+            <button onClick={()=>setShowFilters(false)} style={{width:"100%",background:C.accent,border:"none",borderRadius:14,padding:"13px 0",fontSize:14,fontWeight:600,color:"#fff",cursor:"pointer"}}>
+              {"Show "+filtered.length+" results"}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FamilyHub({ members, setMembers, buffer, setBuffer, childFund, setChildFund, lucasFund, setLucasFund, summerHoliday, setSummerHoliday, onBack, onOpenChat, onOpenInsights, onSubPage, openMonthlyTrigger, openDealsTrigger, openBufferTrigger, openLimitsTrigger, openMajaGoalTrigger, onInviteMember, mainScrollRef }) {
+  const pageScrollRef = useRef<HTMLDivElement>(null);
   const [selMember,setSelMember]=useState(null);
   const [selTx,setSelTx]=useState(null);
   const [selTxM,setSelTxM]=useState(null);
   const [selGoal,setSelGoal]=useState(null);
   const [showManage,setShowManage]=useState(false);
   const [showAutoSave,setShowAutoSave]=useState(false);
+  const [memberDetailTab,setMemberDetailTab]=useState("activity");
   const [showBuf,setShowBuf]=useState(false);
   const [showCF,setShowCF]=useState(false);
+  const [showSH,setShowSH]=useState(false);
   const [showSav,setShowSav]=useState(false);
+  const [showAllSavings,setShowAllSavings]=useState(false);
+  const [showAllActivities,setShowAllActivities]=useState(false);
   const [showExp,setShowExp]=useState(false);
+  const [showSpending,setShowSpending]=useState(false);
   const [showSavCalc,setShowSavCalc]=useState(false);
   const [showDeals,setShowDeals]=useState(false);
   const [showLimits,setShowLimits]=useState(false);
   const [showSubs,setShowSubs]=useState(false);
   const [showMonthly,setShowMonthly]=useState(false);
   const [showFixed,setShowFixed]=useState(false);
+  const [showLucasCF,setShowLucasCF]=useState(false);
   useEffect(()=>{if(openMonthlyTrigger>0)setShowMonthly(true);},[openMonthlyTrigger]);
+  useEffect(()=>{if(openDealsTrigger>0)setShowDeals(true);},[openDealsTrigger]);
+  useEffect(()=>{if(openBufferTrigger>0)setShowBuf(true);},[openBufferTrigger]);
+  useEffect(()=>{if(openLimitsTrigger>0)setShowLimits(true);},[openLimitsTrigger]);
+  useEffect(()=>{if(openMajaGoalTrigger>0){const maja=members.find(m=>m.id===3);if(maja)setSelGoal(maja);}},[openMajaGoalTrigger]);
   const [selLoan,setSelLoan]=useState(null);
+  const [spendSelCat, setSpendSelCat] = useState<any>(null);
+  const [spendView, setSpendView] = useState<null|"variable"|"fixed"|"manage"|"addExp">(null);
+  const [now,setNow]=useState(()=>new Date());
+  useEffect(()=>{const t=setInterval(()=>setNow(new Date()),60000);return()=>clearInterval(t);},[]);
+  const isSubPageActive = !!(showFixed||showSpending||showMonthly||showSubs||showSavCalc||showExp||showDeals||showLimits||showBuf||showCF||showLucasCF||showSH||showAutoSave||showSav||showAllSavings||showAllActivities||selGoal||selTx||selMember||selLoan||showManage);
+  const saveHubScroll = useScrollRestore(mainScrollRef, isSubPageActive);
+  // scroll to top on every sub-page transition (including sub→sub navigation)
+  const _pageKey = [showFixed,showSpending,spendView,spendSelCat?.name,showMonthly,showSubs,showSavCalc,showExp,showDeals,showLimits,showBuf,showCF,showLucasCF,showSH,showAutoSave,showSav,showAllSavings,showAllActivities,selGoal?.id,selTx?.merchant,selMember?.id,showManage,selLoan?.name].join("|");
+  useEffect(()=>{ if(isSubPageActive) requestAnimationFrame(()=>{ if(mainScrollRef?.current) mainScrollRef.current.scrollTop=0; if(pageScrollRef?.current) pageScrollRef.current.scrollTop=0; }); },[_pageKey]);
   const familyLoans=[
     {name:"Home renovation loan",amount:35000,monthly:1200,paid:8500,color:"#FBBF24",icon:"🏠",rate:"4.9%",ends:"Dec 2027"},
     {name:"Electronics — Elgiganten",amount:7500,monthly:685,paid:2500,color:"#60A5FA",icon:"💻",rate:"0%",ends:"Oct 2025"},
@@ -2188,6 +3838,15 @@ function FamilyHub({ members, setMembers, buffer, setBuffer, childFund, setChild
   const getSubPage=()=>{
     if(showSavCalc) return {title:"Savings Calculator",back:()=>setShowSavCalc(false)};
     if(showExp) return {title:"Expense Report",back:()=>setShowExp(false)};
+    if(showSpending) {
+      if(spendSelCat) return {title:spendSelCat.name, back:()=>setSpendSelCat(null)};
+      if(spendView==="manage") return {title:"Manage limits", back:()=>setSpendView("variable")};
+      if(spendView==="addExp") return {title:"Add expense", back:()=>setSpendView(null)};
+      if(spendView==="variable") return {title:"Variable spending", back:()=>setSpendView(null)};
+      if(spendView==="fixed") return {title:"Fixed costs", back:()=>setSpendView(null)};
+      if(spendView==="allocate") return {title:"Allocate funds", back:()=>setSpendView(null)};
+      return {title:"Spending", back:()=>setShowSpending(false)};
+    }
     if(showDeals) return {title:"Partner Deals",back:()=>setShowDeals(false)};
     if(showMonthly) return {title:"Monthly Report",back:()=>setShowMonthly(false)};
     if(showFixed) return {title:"Fixed Expenses",back:()=>setShowFixed(false)};
@@ -2195,8 +3854,12 @@ function FamilyHub({ members, setMembers, buffer, setBuffer, childFund, setChild
     if(showLimits) return {title:"Manage Limits",back:()=>setShowLimits(false)};
     if(showBuf) return {title:"Buffer Account",back:()=>setShowBuf(false)};
     if(showCF) return {title:"Maja's Fund",back:()=>setShowCF(false)};
+    if(showLucasCF) return {title:"Lucas's Fund",back:()=>setShowLucasCF(false)};
+    if(showSH) return {title:"Summer holiday",back:()=>setShowSH(false)};
     if(showAutoSave) return {title:"Auto-Save",back:()=>setShowAutoSave(false)};
     if(showSav) return {title:"Savings",back:()=>setShowSav(false)};
+    if(showAllSavings) return {title:"Savings & Goals",back:()=>setShowAllSavings(false)};
+    if(showAllActivities) return {title:"All Activities",back:()=>setShowAllActivities(false)};
     if(liveG) return {title:liveG.savingsGoal.name,back:()=>setSelGoal(null)};
     if(selTx&&selTxM) return {title:"Transaction",back:()=>{setSelTx(null);setSelTxM(null);}};
     if(liveM) return {title:liveM.name,back:()=>setSelMember(null)};
@@ -2205,97 +3868,204 @@ function FamilyHub({ members, setMembers, buffer, setBuffer, childFund, setChild
     return null;
   };
   const subPage=getSubPage();
-  useEffect(()=>{if(onSubPage) onSubPage(subPage);},[showSavCalc,showExp,showDeals,showLimits,showBuf,showCF,showAutoSave,showSav,selGoal,selTx,selMember,showManage,liveM,liveG,selLoan,showSubs,showMonthly,showFixed]);
-  if(showFixed) return <div style={fm}><FixedExpenses members={members} onBack={()=>setShowFixed(false)}/></div>;
-  if(showMonthly) return <div style={fm}><MonthlySummary members={members} expenseData={EXPENSE_DATA} buffer={buffer} childFund={childFund} loans={familyLoans} onBack={()=>setShowMonthly(false)}/></div>;
-  if(showSubs) return <div style={fm}><SubscriptionsPage members={members} onBack={()=>setShowSubs(false)}/></div>;
-  if(showSavCalc) return <div style={fm}><SavingsCalculator members={members} buffer={buffer} childFund={childFund} onBack={()=>setShowSavCalc(false)}/></div>;
-  if(showExp) return <div style={fm}><ExpenseReport onBack={()=>setShowExp(false)}/></div>;
-  if(showDeals) return <div style={fm}><DealsPage onBack={()=>setShowDeals(false)} deals={DEALS}/></div>;
-  if(showLimits) return <div style={fm}><ManageLimits members={members} totalCredit={totalCredit} onBack={()=>setShowLimits(false)}/></div>;
-  if(showBuf) return <div style={fm}><BufferAccount members={members} buffer={buffer} onDeposit={a=>setBuffer(b=>({...b,balance:b.balance+a}))} onWithdraw={a=>setBuffer(b=>({...b,balance:Math.max(0,b.balance-a)}))} onBack={()=>setShowBuf(false)}/></div>;
-  if(showCF) return <div style={fm}><ChildFund members={members} fund={childFund} onDeposit={a=>setChildFund(f=>({...f,balance:f.balance+a}))} onBack={()=>setShowCF(false)}/></div>;
-  if(showAutoSave) return <div style={fm}><AutoSaveSettings members={members} buffer={buffer} childFund={childFund} onBack={()=>setShowAutoSave(false)}/></div>;
-  if(showSav) return <div style={fm}><SavingsManage members={members} buffer={buffer} childFund={childFund} onBack={()=>setShowSav(false)} onAutoSave={()=>{setShowSav(false);setShowAutoSave(true);}} onGoal={m=>{setShowSav(false);setSelGoal(m);}} onBuffer={()=>{setShowSav(false);setShowBuf(true);}} onChildFund={()=>{setShowSav(false);setShowCF(true);}}/></div>;
-  if(liveG) return <div style={fm}><SavingsGoalDetail member={liveG} onBack={()=>setSelGoal(null)} onUpdate={updGoal} onAutoSaveSettings={()=>setShowAutoSave(true)}/></div>;
-  if(selTx&&selTxM) return <div style={fm}><TxDetail tx={selTx} member={selTxM} onBack={()=>{setSelTx(null);setSelTxM(null);}}/></div>;
-  if(liveM) return <div style={fm}><MemberDetail m={liveM} onBack={()=>setSelMember(null)} onTx={(tx,m)=>{setSelTx(tx);setSelTxM(m);}} onGoal={m=>setSelGoal(m)} onChildFund={()=>setShowCF(true)} childFund={childFund}/></div>;
-  if(selLoan) return <div style={fm}><LoanDetail loan={selLoan} onBack={()=>setSelLoan(null)}/></div>;
-  if(showManage) return <div style={fm}><ManageMembers members={members} onBack={()=>setShowManage(false)} onSelect={m=>{setShowManage(false);setSelMember(m);}} onRemove={id=>setMembers(ms=>ms.filter(m=>m.id!==id))} onFreeze={id=>setMembers(ms=>ms.map(m=>m.id===id?{...m,status:m.status==="Frozen"?"Within limit":"Frozen",statusColor:m.status==="Frozen"?C.green:C.red,statusBg:m.status==="Frozen"?C.greenSoft:C.redSoft}:m))}/></div>;
-  const recent=members.flatMap(m=>m.transactions.slice(0,1).map(tx=>({...tx,member:m}))).slice(0,3);
+  useEffect(()=>{if(onSubPage) onSubPage(subPage);},[showSavCalc,showExp,showSpending,spendSelCat,spendView,showDeals,showLimits,showBuf,showCF,showLucasCF,showSH,showAutoSave,showSav,showAllSavings,showAllActivities,selGoal,selTx,selMember,showManage,liveM,liveG,selLoan,showSubs,showMonthly,showFixed]);
+  if(showFixed) return <div ref={pageScrollRef} style={fm}><FixedExpenses members={members} onBack={()=>setShowFixed(false)}/></div>;
+  if(showSpending) return <div ref={pageScrollRef} style={fm}><SpendingPage members={members} buffer={buffer} childFund={childFund} lucasFund={lucasFund} loans={familyLoans} onManageFixed={()=>{setShowSpending(false);setShowFixed(true);}} scrollContainerRef={pageScrollRef} selCat={spendSelCat} onSelCat={setSpendSelCat} spendView={spendView} onSpendView={setSpendView}/></div>;
+  if(showMonthly) return <div ref={pageScrollRef} style={fm}><MonthlySummary members={members} expenseData={EXPENSE_DATA} buffer={buffer} childFund={childFund} loans={familyLoans} onBack={()=>setShowMonthly(false)}/></div>;
+  if(showSubs) return <div ref={pageScrollRef} style={fm}><SubscriptionsPage members={members} onBack={()=>setShowSubs(false)}/></div>;
+  if(showSavCalc) return <div ref={pageScrollRef} style={fm}><SavingsCalculator members={members} buffer={buffer} childFund={childFund} onBack={()=>setShowSavCalc(false)}/></div>;
+  if(showExp) return <div ref={pageScrollRef} style={fm}><ExpenseReport onBack={()=>setShowExp(false)} scrollContainerRef={pageScrollRef}/></div>;
+  if(showDeals) return <div ref={pageScrollRef} style={fm}><DealsPage onBack={()=>setShowDeals(false)} deals={DEALS}/></div>;
+  if(showLimits) return <div ref={pageScrollRef} style={fm}><ManageLimits members={members} totalCredit={totalCredit} onBack={()=>setShowLimits(false)}/></div>;
+  if(showBuf) return <div ref={pageScrollRef} style={fm}><BufferAccount members={members} buffer={buffer} onDeposit={a=>setBuffer(b=>({...b,balance:b.balance+a}))} onWithdraw={a=>setBuffer(b=>({...b,balance:Math.max(0,b.balance-a)}))} onBack={()=>setShowBuf(false)} onAutoSaveSettings={()=>{setShowBuf(false);setShowAutoSave(true);}}/></div>;
+  if(showCF) return <div ref={pageScrollRef} style={fm}><ChildFund members={members} fund={childFund} onDeposit={a=>setChildFund(f=>({...f,balance:f.balance+a}))} onBack={()=>setShowCF(false)} onAutoSaveSettings={()=>{setShowCF(false);setShowAutoSave(true);}}/></div>;
+  if(showLucasCF) return <div ref={pageScrollRef} style={fm}><ChildFund members={members} fund={lucasFund} onDeposit={a=>setLucasFund(f=>({...f,balance:f.balance+a}))} onBack={()=>setShowLucasCF(false)} onAutoSaveSettings={()=>{setShowLucasCF(false);setShowAutoSave(true);}}/></div>;
+  if(showSH) { const shMember={id:0,name:"Family",fullName:"Anna & Erik",age:0,role:"Parent",color:summerHoliday.color,colorSoft:summerHoliday.color+"22",savingsGoal:{...summerHoliday}}; return <div ref={pageScrollRef} style={fm}><SavingsGoalDetail member={shMember} onBack={()=>setShowSH(false)} onUpdate={(_id,g)=>setSummerHoliday(g)} onAutoSaveSettings={()=>{setShowSH(false);setShowAutoSave(true);}}/></div>; }
+  if(showAutoSave) return <div ref={pageScrollRef} style={fm}><AutoSaveSettings members={members} buffer={buffer} childFund={childFund} lucasFund={lucasFund} summerHoliday={summerHoliday} onBack={()=>setShowAutoSave(false)}/></div>;
+  if(showSav) return <div ref={pageScrollRef} style={fm}><SavingsManage members={members} buffer={buffer} childFund={childFund} onBack={()=>setShowSav(false)} onAutoSave={()=>{setShowSav(false);setShowAutoSave(true);}} onGoal={m=>{setShowSav(false);setSelGoal(m);}} onBuffer={()=>{setShowSav(false);setShowBuf(true);}} onChildFund={()=>{setShowSav(false);setShowCF(true);}}/></div>;
+  if(showAllActivities) return <div ref={pageScrollRef} style={fm}><AllActivities members={members} onBack={()=>setShowAllActivities(false)} onTx={(tx,m)=>{setSelTx(tx);setSelTxM(m);setShowAllActivities(false);}}/></div>;
+  if(showAllSavings) return <div ref={pageScrollRef} style={fm}><AllSavingsGoals members={members} buffer={buffer} childFund={childFund} lucasFund={lucasFund} summerHoliday={summerHoliday} onBack={()=>setShowAllSavings(false)} onBuf={()=>{setShowAllSavings(false);setShowBuf(true);}} onCF={()=>{setShowAllSavings(false);setShowCF(true);}} onLucasCF={()=>{setShowAllSavings(false);setShowLucasCF(true);}} onSH={()=>{setShowAllSavings(false);setShowSH(true);}} onGoal={m=>{setShowAllSavings(false);setSelGoal(m);}}/></div>;
+  if(liveG) return <div ref={pageScrollRef} style={fm}><SavingsGoalDetail member={liveG} onBack={()=>setSelGoal(null)} onUpdate={updGoal} onAutoSaveSettings={()=>setShowAutoSave(true)}/></div>;
+  if(selTx&&selTxM) return <div ref={pageScrollRef} style={fm}><TxDetail tx={selTx} member={selTxM} onBack={()=>{setSelTx(null);setSelTxM(null);}}/></div>;
+  {const mFund=liveM?.id===lucasFund.childId?lucasFund:childFund;const mOnCF=liveM?.id===lucasFund.childId?()=>{setMemberDetailTab("savings");setShowLucasCF(true);}:()=>{setMemberDetailTab("savings");setShowCF(true);};if(liveM) return <div ref={pageScrollRef} style={fm}><MemberDetail m={liveM} onBack={()=>{setSelMember(null);setMemberDetailTab("activity");}} onTx={(tx,m)=>{setSelTx(tx);setSelTxM(m);}} onGoal={m=>{setMemberDetailTab("savings");setSelGoal(m);}} onChildFund={mOnCF} childFund={mFund} buffer={buffer} lucasFund={lucasFund} summerHoliday={summerHoliday} onBuf={()=>{setMemberDetailTab("savings");setShowBuf(true);}} onCF={()=>{setMemberDetailTab("savings");setShowCF(true);}} onLucasCF={()=>{setMemberDetailTab("savings");setShowLucasCF(true);}} onSH={()=>{setMemberDetailTab("savings");setShowSH(true);}} initialTab={memberDetailTab} onUpdateAllowance={a=>setMembers(ms=>ms.map(m=>m.id===liveM.id?{...m,savingsGoal:{...m.savingsGoal,allowance:a}}:m))} onUpdateMember={updated=>setMembers(ms=>ms.map(m=>m.id===updated.id?updated:m))}/></div>;}
+  if(selLoan) return <div ref={pageScrollRef} style={fm}><LoanDetail loan={selLoan} onBack={()=>setSelLoan(null)}/></div>;
+  if(showManage) return <div ref={pageScrollRef} style={fm}><ManageMembers members={members} onBack={()=>setShowManage(false)} onSelect={m=>{setShowManage(false);setSelMember(m);}} onRemove={id=>setMembers(ms=>ms.filter(m=>m.id!==id))} onFreeze={id=>setMembers(ms=>ms.map(m=>m.id===id?{...m,status:m.status==="Frozen"?"Within limit":"Frozen",statusColor:m.status==="Frozen"?C.green:C.red,statusBg:m.status==="Frozen"?C.greenSoft:C.redSoft}:m))} onInvite={onInviteMember} onUpdateAllowance={(id,a)=>setMembers(ms=>ms.map(m=>m.id===id?{...m,savingsGoal:{...m.savingsGoal,allowance:a}}:m))}/></div>;
+  const recent=members.flatMap(m=>m.transactions.slice(0,1).map(tx=>({...tx,member:m}))).slice(0,2);
+  const hour=now.getHours();
+  const greeting=hour<5?"Good night":hour<12?"Good morning":hour<17?"Good afternoon":hour<21?"Good evening":"Good night";
   return (
-    <div style={{background:C.bg,color:C.t1}}>
-      <div style={{background:"linear-gradient(160deg,#1A1060 0%,#0D0F1A 60%)",padding:"20px 20px 20px",borderBottom:"1px solid "+C.border}}>
+    <div onClickCapture={saveHubScroll} style={{background:C.bg,color:C.t1}}>
+      <div style={{background:"linear-gradient(160deg,"+C.accent+"33 0%,"+C.bg+" 70%)",padding:"20px 20px 20px",borderBottom:"1px solid "+C.border}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20}}>
-          <div><div style={{fontSize:11,color:C.t3,letterSpacing:1,textTransform:"uppercase",marginBottom:4}}>Resurs Family</div><div style={{fontSize:26,fontWeight:500,color:C.t1,lineHeight:1.2}}>Good morning,<br/>Karlsson family</div></div>
-          <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:8,marginTop:4}}>
+          <div><div style={{fontSize:26,fontWeight:500,color:C.t1,lineHeight:1.2}}>{greeting},<br/>Karlsson family</div></div>
+          <div style={{display:"flex",alignItems:"center",marginTop:4}}>
             <div style={{display:"flex"}}>{members.map((m,i)=><div key={m.id} style={{marginLeft:i>0?-10:0,border:"2px solid "+C.bg,borderRadius:"50%"}}><Avatar m={m} size={32}/></div>)}</div>
-            <button onClick={onOpenInsights} style={{display:"flex",alignItems:"center",gap:5,background:"linear-gradient(135deg,rgba(124,111,255,0.25),rgba(52,211,153,0.15))",border:"1px solid rgba(124,111,255,0.4)",borderRadius:20,padding:"5px 10px",cursor:"pointer"}}>
-              <span style={{fontSize:11,color:C.accent,fontWeight:600}}>✦ AI Insights</span>
-            </button>
           </div>
         </div>
         <div style={{background:"rgba(124,111,255,0.12)",border:"1px solid rgba(124,111,255,0.25)",borderRadius:20,padding:"18px 20px"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16}}>
-            <div><div style={{fontSize:11,color:C.t3,marginBottom:4}}>Available credit</div><div style={{fontSize:30,fontWeight:500,color:C.t1}}>{fmt(totalCredit-totalUsed)+" "}<span style={{fontSize:15,color:C.t2}}>kr</span></div><div style={{fontSize:12,color:C.t2,marginTop:2}}>{"of "+fmt(totalCredit)+" kr total"}</div></div>
-            <div style={{textAlign:"right"}}><div style={{fontSize:11,color:C.t3,marginBottom:4}}>Used</div><div style={{fontSize:18,fontWeight:500,color:C.amber}}>{usedPct+"%"}</div></div>
+            <div><div style={{fontSize:13,color:C.t3,marginBottom:4}}>Available credit</div><div style={{fontSize:30,fontWeight:500,color:C.t1}}>{fmt(totalCredit-totalUsed)+" "}<span style={{fontSize:15,color:C.t2}}>kr</span></div><div style={{fontSize:12,color:C.t2,marginTop:2}}>{"of "+fmt(totalCredit)+" kr total"}</div></div>
+            <div style={{textAlign:"right"}}><div style={{fontSize:13,color:C.t3,marginBottom:4}}>Used</div><div style={{fontSize:18,fontWeight:500,color:C.amber}}>{usedPct+"%"}</div></div>
           </div>
           <Bar value={totalUsed} max={totalCredit} color={C.accent}/>
           <div style={{display:"flex",gap:8,marginTop:14}}>
             <button style={{flex:1,background:C.accent,border:"none",borderRadius:10,padding:"9px 0",fontSize:13,fontWeight:500,color:"#fff",cursor:"pointer"}}>Make payment</button>
-            <button onClick={()=>setShowLimits(true)} style={{flex:1,background:"rgba(255,255,255,0.07)",border:"1px solid "+C.border,borderRadius:10,padding:"9px 0",fontSize:13,fontWeight:500,color:C.t2,cursor:"pointer"}}>Split limits</button>
+            <button onClick={()=>setShowLimits(true)} style={{flex:1,background:C.card,border:"1px solid "+C.border,borderRadius:10,padding:"9px 0",fontSize:13,fontWeight:500,color:C.t2,cursor:"pointer"}}>Manage limits</button>
           </div>
         </div>
       </div>
       <div style={{padding:"20px 20px 0"}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}><div style={{fontSize:14,fontWeight:500,color:C.t1}}>Family members</div><button onClick={()=>setShowManage(true)} style={{background:"none",border:"none",color:C.accent,fontSize:12,cursor:"pointer",padding:0}}>Manage</button></div>
-        <ScrollRow style={{display:"flex",gap:10,paddingBottom:4}}>
-          {members.map(m=>{const p=Math.round((m.spendMonth/m.spendLimit)*100);return(
-            <div key={m.id} onClick={()=>setSelMember(m)} style={{flexShrink:0,width:110,background:C.card,borderRadius:16,padding:"14px 12px",border:"1px solid "+C.border,cursor:"pointer",textAlign:"center"}} onMouseEnter={e=>e.currentTarget.style.background=C.cardHover} onMouseLeave={e=>e.currentTarget.style.background=C.card}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}><div style={{fontSize:14,fontWeight:500,color:C.t1}}>Family members</div><button onClick={()=>setShowManage(true)} style={{background:"none",border:"none",fontSize:13,color:C.accent,fontWeight:500,cursor:"pointer",padding:0}}>Manage</button></div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          {members.map(m=>{return(
+            <div key={m.id} onClick={()=>setSelMember(m)} style={{background:C.card,borderRadius:16,padding:"14px 12px",border:"1px solid "+C.border,cursor:"pointer",textAlign:"center",position:"relative"}} onMouseEnter={e=>e.currentTarget.style.background=C.cardHover} onMouseLeave={e=>e.currentTarget.style.background=C.card}>
               <div style={{display:"flex",justifyContent:"center",marginBottom:8}}><Avatar m={m} size={44}/></div>
               <div style={{fontSize:13,fontWeight:500,color:C.t1,marginBottom:2}}>{m.name}</div>
-              <div style={{fontSize:10,color:C.t3,marginBottom:8}}>{m.role}</div>
-              <Bar value={m.spendMonth} max={m.spendLimit} color={m.color}/>
-              <div style={{fontSize:10,color:m.statusColor,marginTop:5}}>{p+"% used"}</div>
+              <div style={{fontSize:12,color:C.t3,marginBottom:6}}>{m.role}</div>
+              <Badge label={m.status} color={m.statusColor} bg={m.statusBg}/>
             </div>
           );})}
-        </ScrollRow>
+        </div>
       </div>
       <div style={{padding:"16px 20px 0",display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
         <Tile style={{gridColumn:"1 / -1"}}>
-          <TileLabel>Recent activity</TileLabel>
-          {recent.map((item,i)=>(
-            <div key={i} onClick={()=>{setSelTx(item);setSelTxM(item.member);}} onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.03)"} onMouseLeave={e=>e.currentTarget.style.background="transparent"} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:i<recent.length-1?"1px solid "+C.border:"none",cursor:"pointer",borderRadius:8}}>
-              <Avatar m={item.member} size={30}/>
-              <div style={{flex:1,minWidth:0}}><div style={{fontSize:13,fontWeight:500,color:C.t1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.merchant}</div>              <div style={{fontSize:11,color:C.t3}}>{item.member.name+" - "+item.date}</div></div>
-              <div style={{fontSize:13,fontWeight:500,color:C.red,whiteSpace:"nowrap"}}>{fmt(item.amount)+" kr"}</div>
-            </div>
-          ))}
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+            <div style={{fontSize:13,fontWeight:500,color:C.t3,textTransform:"uppercase",letterSpacing:1}}>Recent activity</div>
+            <button onClick={()=>setShowAllActivities(true)} style={{background:"none",border:"none",color:C.accent,fontSize:12,cursor:"pointer",padding:0}}>View all</button>
+          </div>
+          {(()=>{
+            const allTx=members.flatMap(m=>m.transactions.map(tx=>({...tx,member:m})));
+            const totalSpent=allTx.reduce((s,tx)=>s+tx.amount,0);
+            const memberTotals=members.map(m=>({m,total:m.transactions.reduce((s,tx)=>s+tx.amount,0)}));
+            const maxMember=Math.max(...memberTotals.map(x=>x.total),1);
+            const dayBars=[520,840,310,1050,680,920,Math.max(allTx.slice(0,4).reduce((s,tx)=>s+tx.amount,0),150)];
+            const maxBar=Math.max(...dayBars);
+            const days=["M","T","W","T","F","S","S"];
+            return (
+              <>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",marginBottom:18}}>
+                  <div>
+                    <div style={{fontSize:11,color:C.t3,textTransform:"uppercase",letterSpacing:0.5,marginBottom:4}}>This week</div>
+                    <div style={{fontSize:26,fontWeight:700,color:C.t1,letterSpacing:-0.5,lineHeight:1}}>{fmt(totalSpent)}<span style={{fontSize:13,fontWeight:400,color:C.t2,marginLeft:4}}>kr</span></div>
+                  </div>
+                  <div style={{display:"flex",gap:4,alignItems:"flex-end",height:50}}>
+                    {dayBars.map((v,i)=>(
+                      <div key={i} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+                        <div style={{width:12,borderRadius:"3px 3px 2px 2px",background:i===6?"#7C6FFF":"rgba(124,111,255,0.22)",height:Math.max(4,(v/maxBar)*38)+"px"}}/>
+                        <div style={{fontSize:8,color:i===6?C.t3+"cc":C.t3+"66",fontWeight:i===6?600:400}}>{days[i]}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:14}}>
+                  {memberTotals.map(({m,total})=>(
+                    <div key={m.id} onClick={()=>setSelMember(m)} style={{cursor:"pointer"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:5}}>
+                        <Avatar m={m} size={20}/>
+                        <div style={{fontSize:12,color:C.t2,flex:1}}>{m.name}</div>
+                        <div style={{fontSize:12,fontWeight:600,color:C.t1}}>−{fmt(total)} kr</div>
+                      </div>
+                      <div style={{height:4,borderRadius:2,background:"rgba(255,255,255,0.06)"}}>
+                        <div style={{height:"100%",borderRadius:2,background:m.color,width:Math.round(total/maxMember*100)+"%"}}/>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{borderTop:"1px solid "+C.border,paddingTop:10}}>
+                  {allTx.slice(0,2).map((tx,i)=>(
+                    <div key={i} onClick={()=>{setSelTx(tx);setSelTxM(tx.member);}} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 0",borderBottom:i===0?"1px solid "+C.border:"none",cursor:"pointer"}} onMouseEnter={e=>e.currentTarget.style.opacity="0.7"} onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
+                      <Avatar m={tx.member} size={26}/>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:12,fontWeight:500,color:C.t1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{tx.merchant}</div>
+                        <div style={{fontSize:11,color:C.t3}}>{tx.member.name+" · "+tx.date}</div>
+                      </div>
+                      <div style={{fontSize:12,fontWeight:600,color:C.red}}>−{fmt(tx.amount)} kr</div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            );
+          })()}
         </Tile>
         <Tile style={{gridColumn:"1 / -1"}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><TileLabel>Savings & goals</TileLabel><button onClick={()=>setShowSav(true)} style={{background:"none",border:"none",color:C.accent,fontSize:12,cursor:"pointer",padding:0,marginBottom:10}}>Manage</button></div>
-          <div style={{display:"flex",flexDirection:"column",gap:12}}>
-            <div onClick={()=>setShowBuf(true)} style={{cursor:"pointer",display:"flex",alignItems:"center",gap:10,borderBottom:"1px solid "+C.border,paddingBottom:12,marginBottom:4}} onMouseEnter={e=>e.currentTarget.style.opacity="0.75"} onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
-              <span style={{fontSize:18}}>🛟</span>
-              <div style={{flex:1}}><div style={{fontSize:13,fontWeight:500,color:C.t1}}>Buffer account</div><div style={{fontSize:11,color:C.t3,marginTop:2}}>Joint · Adults</div></div>
-              <div style={{textAlign:"right"}}><div style={{fontSize:13,fontWeight:500,color:"#7C6FFF"}}>{fmt(buffer.balance)+" kr"}</div><div style={{fontSize:11,color:C.t3}}>{"+"+fmt(buffer.monthly)+" kr/mo"}</div></div>
-            </div>
-            <div onClick={()=>setShowCF(true)} style={{cursor:"pointer",display:"flex",alignItems:"center",gap:10,borderBottom:"1px solid "+C.border,paddingBottom:12,marginBottom:4}} onMouseEnter={e=>e.currentTarget.style.opacity="0.75"} onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
-              <span style={{fontSize:18}}>🌱</span>
-              <div style={{flex:1}}><div style={{fontSize:13,fontWeight:500,color:C.t1}}>{"Maja's 0–18 fund"}</div><div style={{fontSize:11,color:C.t3,marginTop:2}}>Long-term · Adults manage</div></div>
-              <div style={{textAlign:"right"}}><div style={{fontSize:13,fontWeight:500,color:"#F472B6"}}>{fmt(childFund.balance)+" kr"}</div><div style={{fontSize:11,color:C.t3}}>{"+"+fmt(childFund.monthly)+" kr/mo"}</div></div>
-            </div>
-            {members.map(m=>{const g=m.savingsGoal,p=Math.round((g.saved/g.target)*100);return(
-              <div key={m.id} onClick={()=>setSelGoal(m)} style={{cursor:"pointer",padding:"4px 0"}} onMouseEnter={e=>e.currentTarget.style.opacity="0.75"} onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:5}}><div style={{display:"flex",alignItems:"center",gap:8}}><div style={{width:22,height:22,borderRadius:6,background:g.color+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,overflow:"hidden",flexShrink:0}}>{g.photo?<img src={g.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>:g.emoji}</div><Avatar m={m} size={22}/><span style={{fontSize:13,color:C.t1}}>{g.name}</span></div><span style={{fontSize:12,color:g.color,fontWeight:500}}>{p+"%"}</span></div>
-                <Bar value={g.saved} max={g.target} color={g.color}/>
-                <div style={{display:"flex",justifyContent:"space-between",marginTop:4,fontSize:11,color:C.t3}}><span>{fmt(g.saved)+" kr"}</span><span>{fmt(g.target)+" kr"}</span></div>
-              </div>
-            );})}
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+            <div style={{fontSize:13,fontWeight:500,color:C.t3,textTransform:"uppercase",letterSpacing:1}}>Savings & goals</div>
+            <button onClick={()=>setShowAllSavings(true)} style={{background:"none",border:"none",color:C.accent,fontSize:12,cursor:"pointer",padding:0}}>View all</button>
           </div>
+          {(()=>{
+            const goals=[
+              {key:"buf",label:"Buffer",sub:"Joint account",icon:"🛟",balance:buffer.balance,target:null,monthly:buffer.monthly,color:"#7C6FFF",action:()=>setShowBuf(true)},
+              {key:"cf",label:childFund.name.split("'")[0]+"'s fund",sub:"Long-term",icon:"🌱",balance:childFund.balance,target:null,monthly:childFund.monthly,color:"#F472B6",action:()=>setShowCF(true)},
+              {key:"lcg",label:lucasFund.name.split("'")[0]+"'s fund",sub:"Long-term",icon:"🌱",balance:lucasFund.balance,target:null,monthly:lucasFund.monthly,color:"#FBBF24",action:()=>setShowLucasCF(true)},
+              {key:"sh",label:summerHoliday.name,sub:"Family goal",icon:summerHoliday.emoji||"🌴",balance:summerHoliday.saved||0,target:summerHoliday.target||0,monthly:summerHoliday.monthly||0,color:summerHoliday.color||"#60A5FA",action:()=>setShowSH(true)},
+            ];
+            const totalSaved=goals.reduce((s,g)=>s+g.balance,0);
+            const totalTarget=goals.reduce((s,g)=>s+(g.target||0),0);
+            const totalPct=totalTarget>0?Math.min(100,Math.round(totalSaved/(totalSaved+totalTarget)*60)):null;
+            return (
+              <>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",marginBottom:12}}>
+                  <div>
+                    <div style={{fontSize:11,color:C.t3,textTransform:"uppercase",letterSpacing:0.5,marginBottom:4}}>Total saved</div>
+                    <div style={{fontSize:26,fontWeight:700,color:C.t1,letterSpacing:-0.5,lineHeight:1}}>{fmt(totalSaved)}<span style={{fontSize:13,fontWeight:400,color:C.t2,marginLeft:4}}>kr</span></div>
+                  </div>
+                  <div style={{fontSize:11,color:C.t3}}>+{fmt(goals.reduce((s,g)=>s+g.monthly,0))} kr/mo</div>
+                </div>
+                <div style={{display:"flex",gap:1.5,height:5,borderRadius:3,overflow:"hidden",marginBottom:16}}>
+                  {goals.map(g=>(
+                    <div key={g.key} style={{flex:Math.max(g.balance,1),background:g.color}}/>
+                  ))}
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                  {goals.map(g=>{
+                    const pct=g.target?Math.min(100,Math.round(g.balance/g.target*100)):null;
+                    return (
+                      <div key={g.key} onClick={g.action} style={{background:C.bg,borderRadius:14,padding:"12px 12px 10px",border:"1px solid "+C.border,cursor:"pointer"}} onMouseEnter={e=>e.currentTarget.style.borderColor=g.color+"55"} onMouseLeave={e=>e.currentTarget.style.borderColor=C.border}>
+                        <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}>
+                          <div style={{width:28,height:28,borderRadius:8,background:g.color+"18",border:"1.5px solid "+g.color+"44",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14}}>{g.icon}</div>
+                          <div style={{fontSize:11,fontWeight:600,color:C.t2,lineHeight:1.2,flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{g.label}</div>
+                        </div>
+                        <div style={{fontSize:18,fontWeight:700,color:g.color,letterSpacing:-0.5,lineHeight:1,marginBottom:2}}>{fmt(g.balance)}<span style={{fontSize:10,fontWeight:400,color:C.t3,marginLeft:2}}>kr</span></div>
+                        <div style={{fontSize:10,color:C.t3,marginBottom:pct!=null?8:0}}>+{fmt(g.monthly)} kr/mo</div>
+                        {pct!=null&&<>
+                          <div style={{height:3,borderRadius:2,background:"rgba(255,255,255,0.07)"}}>
+                            <div style={{height:"100%",borderRadius:2,background:g.color,width:pct+"%"}}/>
+                          </div>
+                          <div style={{fontSize:9,color:C.t3,marginTop:3,textAlign:"right"}}>{pct}% of goal</div>
+                        </>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            );
+          })()}
         </Tile>
-        <Tile style={{gridColumn:"1 / -1"}} onClick={()=>setShowDeals(true)}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}><TileLabel>Partner deals</TileLabel><span style={{fontSize:12,color:C.accent,marginBottom:10}}>See all</span></div>
+        {/* ── 2×2 GRID ── */}
+        <div style={{gridColumn:"1 / -1",display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          {[
+            {icon:"💸",label:"Spending",   value:fmt(SPEND_VAR.reduce((s,c)=>s+c.actual,0)),  sub:"kr this month", color:"rgba(124,111,255,0.15)", border:"rgba(124,111,255,0.3)", action:()=>setShowSpending(true)},
+            {icon:"🔄",label:"Subscriptions",value:fmt(initSubs.filter(s=>s.active).reduce((a,s)=>a+s.amount,0)), sub:"kr / month",   color:"rgba(244,114,182,0.15)", border:"rgba(244,114,182,0.3)", action:()=>setShowSubs(true)},
+            {icon:"📅",label:"Monthly report",value:"7 540",                                    sub:"kr in March",   color:"rgba(96,165,250,0.15)",  border:"rgba(96,165,250,0.3)",  action:()=>setShowMonthly(true)},
+            {icon:"🏦",label:"Loans",      value:fmt(familyLoans.reduce((s,l)=>s+l.monthly,0)),sub:"kr / month",   color:"rgba(251,191,36,0.15)",  border:"rgba(251,191,36,0.3)",  action:()=>setSelLoan(familyLoans[0])},
+          ].map(t=>(
+            <Tile key={t.label} onClick={t.action} style={{height:120,display:"flex",flexDirection:"column",justifyContent:"space-between",padding:"14px 14px 14px"}}>
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                <div style={{width:28,height:28,borderRadius:8,background:t.color,border:"1.5px solid "+t.border,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,flexShrink:0}}>{t.icon}</div>
+                <div style={{fontSize:12,fontWeight:600,color:C.t2}}>{t.label}</div>
+              </div>
+              <div>
+                <div style={{fontSize:20,fontWeight:700,color:C.t1,letterSpacing:-0.5,lineHeight:1,marginBottom:3}}>{t.value}</div>
+                <div style={{fontSize:12,color:C.t3}}>{t.sub}</div>
+              </div>
+            </Tile>
+          ))}
+        </div>
+        <Tile style={{gridColumn:"1 / -1"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+            <div style={{fontSize:13,fontWeight:500,color:C.t3,textTransform:"uppercase",letterSpacing:1}}>Partner deals</div>
+            <button onClick={()=>setShowDeals(true)} style={{background:"none",border:"none",color:C.accent,fontSize:12,cursor:"pointer",padding:0}}>View all</button>
+          </div>
           <ScrollRow style={{display:"flex",gap:10,paddingBottom:4}}>
             {DEALS.slice(0,4).map(deal=>(
               <div key={deal.id} style={{flexShrink:0,width:150,background:deal.color+"10",border:"1px solid "+deal.color+"33",borderRadius:14,overflow:"hidden"}}>
@@ -2303,92 +4073,102 @@ function FamilyHub({ members, setMembers, buffer, setBuffer, childFund, setChild
                   <img src={deal.photo} alt={deal.partner} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
                   <div style={{position:"absolute",inset:0,background:"linear-gradient(to bottom,transparent 40%,rgba(0,0,0,0.55) 100%)"}}/>
                   <div style={{position:"absolute",bottom:6,left:8,display:"flex",alignItems:"center",gap:5}}>
-                    <div style={{width:20,height:20,borderRadius:6,background:deal.colorSoft,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11}}>{deal.logo}</div>
-                    <span style={{fontSize:11,fontWeight:600,color:"#fff"}}>{deal.partner}</span>
+                    <div style={{width:20,height:20,borderRadius:6,background:deal.colorSoft,display:"flex",alignItems:"center",justifyContent:"center",fontSize:13}}>{deal.logo}</div>
+                    <span style={{fontSize:13,fontWeight:600,color:"#fff"}}>{deal.partner}</span>
                   </div>
                 </div>
                 <div style={{padding:"10px 10px 10px"}}>
                   <div style={{fontSize:12,fontWeight:500,color:C.t1,marginBottom:6,lineHeight:1.3}}>{deal.title}</div>
-                  <span style={{fontSize:10,fontWeight:500,color:deal.color,background:deal.colorSoft,borderRadius:999,padding:"2px 7px"}}>{deal.saving}</span>
+                  <span style={{fontSize:12,fontWeight:500,color:deal.color,background:deal.colorSoft,borderRadius:999,padding:"2px 7px"}}>{deal.saving}</span>
                 </div>
               </div>
             ))}
           </ScrollRow>
         </Tile>
-        <Tile style={{gridColumn:"1 / -1"}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-            <TileLabel>Loans</TileLabel>
-          </div>
-          <div style={{display:"flex",flexDirection:"column",gap:10}}>
-            {familyLoans.map((loan,i)=>{
-              const pct=Math.round((loan.paid/loan.amount)*100);
-              return (
-                <div key={i} onClick={()=>setSelLoan(loan)} onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.05)"} onMouseLeave={e=>e.currentTarget.style.background="transparent"} style={{display:"flex",alignItems:"center",gap:12,padding:"8px",borderRadius:12,cursor:"pointer",transition:"background 0.15s"}}>
-                  <div style={{width:42,height:42,borderRadius:12,background:loan.color+"22",border:"1.5px solid "+loan.color+"55",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>{loan.icon}</div>
-                  <div style={{flex:1}}>
-                    <div style={{fontSize:13,fontWeight:500,color:C.t1}}>{loan.name}</div>
-                    <div style={{fontSize:11,color:C.t3,marginTop:2,marginBottom:6}}>{loan.rate+" interest - Ends "+loan.ends}</div>
-                    <Bar value={loan.paid} max={loan.amount} color={loan.color} height={4}/>
-                    <div style={{display:"flex",justifyContent:"space-between",marginTop:4,fontSize:11,color:C.t3}}>
-                      <span>{fmt(loan.paid)+" kr paid"}</span>
-                      <span>{fmt(loan.amount-loan.paid)+" kr remaining"}</span>
-                    </div>
-                  </div>
-                  <div style={{textAlign:"right",flexShrink:0,marginLeft:8}}>
-                    <div style={{fontSize:13,fontWeight:500,color:loan.color}}>{fmt(loan.monthly)+" kr"}</div>
-                    <div style={{fontSize:10,color:C.t3}}>per month</div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </Tile>
-        <Tile style={{gridColumn:"1 / -1"}} onClick={()=>setShowSubs(true)}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
-            <TileLabel>Subscriptions</TileLabel>
-            <span style={{fontSize:12,color:C.accent}}>Manage</span>
-          </div>
-          <div style={{display:"flex",gap:10,marginBottom:14}}>
-            {initSubs.filter(s=>s.active).slice(0,5).map((s,i)=>(
-              <div key={s.id} title={s.name} style={{width:36,height:36,borderRadius:10,background:s.color+"22",border:"1.5px solid "+s.color+"55",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>{s.emoji}</div>
-            ))}
-            {initSubs.filter(s=>s.active).length>5&&<div style={{width:36,height:36,borderRadius:10,background:"rgba(255,255,255,0.06)",border:"1px solid "+C.border,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,color:C.t3}}>+{initSubs.filter(s=>s.active).length-5}</div>}
-          </div>
-          <div style={{display:"flex",justifyContent:"space-between",fontSize:12,color:C.t3}}>
-            <span>{initSubs.filter(s=>s.active).length+" active"}</span>
-            <span style={{fontWeight:500,color:C.t2}}>{fmt(initSubs.filter(s=>s.active).reduce((a,s)=>a+s.amount,0))+" kr / mo"}</span>
-          </div>
-        </Tile>
-        <Tile style={{gridColumn:"1 / -1"}} onClick={()=>setShowFixed(true)}>
-          <div style={{display:"flex",alignItems:"center",gap:14}}>
-            <div style={{width:42,height:42,borderRadius:12,background:"rgba(124,111,255,0.15)",border:"1.5px solid rgba(124,111,255,0.3)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>🏠</div>
-            <div style={{flex:1}}>
-              <div style={{fontSize:14,fontWeight:500,color:C.t1}}>Fixed Expenses</div>
-              <div style={{fontSize:11,color:C.t3,marginTop:2}}>Rent, insurance, subscriptions & more</div>
-            </div>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={C.t3} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-          </div>
-        </Tile>
-        <Tile style={{gridColumn:"1 / -1"}} onClick={()=>setShowMonthly(true)}>
-          <div style={{display:"flex",alignItems:"center",gap:14}}>
-            <div style={{width:42,height:42,borderRadius:12,background:"rgba(96,165,250,0.15)",border:"1.5px solid rgba(96,165,250,0.3)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>📅</div>
-            <div style={{flex:1}}>
-              <div style={{fontSize:14,fontWeight:500,color:C.t1}}>Monthly Report</div>
-              <div style={{fontSize:11,color:C.t3,marginTop:2}}>March 2026 · 7 540 kr spent · View full summary</div>
-            </div>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={C.t3} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-          </div>
-        </Tile>
         <Tile><TileLabel>Benefits</TileLabel><div style={{display:"flex",flexDirection:"column",gap:10}}>{[{icon:"🛡",label:"Purchase protection"},{icon:"✈️",label:"Travel insurance"},{icon:"📱",label:"Mobile protection"}].map((b,i)=><div key={i} style={{display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:16}}>{b.icon}</span><span style={{fontSize:12,color:C.t2}}>{b.label}</span></div>)}</div></Tile>
-        <Tile><TileLabel>Quick actions</TileLabel><div style={{display:"flex",flexDirection:"column",gap:10}}>{[{icon:"📊",label:"Expense Wheel",action:()=>setShowExp(true)},{icon:"📈",label:"Savings Calculator",action:()=>setShowSavCalc(true)},{icon:"✦",label:"Ask AI",action:onOpenChat},{icon:"💬",label:"Support",action:null},{icon:"⚙️",label:"Settings",action:null}].map((item,i)=><div key={i} onClick={item.action||undefined} style={{display:"flex",alignItems:"center",gap:8,cursor:item.action?"pointer":"default"}} onMouseEnter={e=>{if(item.action)e.currentTarget.style.opacity="0.7";}} onMouseLeave={e=>e.currentTarget.style.opacity="1"}><span style={{fontSize:16}}>{item.icon}</span><span style={{fontSize:12,color:item.action?C.accent:C.t2}}>{item.label}</span></div>)}</div></Tile>
+        <Tile><TileLabel>Quick actions</TileLabel><div style={{display:"flex",flexDirection:"column",gap:10}}>{[{icon:"📊",label:"Expense Wheel",action:()=>setShowSpending(true)},{icon:"📈",label:"Savings Calculator",action:()=>setShowSavCalc(true)},{icon:"✦",label:"Ask AI",action:onOpenChat},{icon:"💬",label:"Support",action:null},{icon:"⚙️",label:"Settings",action:null}].map((item,i)=><div key={i} onClick={item.action||undefined} style={{display:"flex",alignItems:"center",gap:8,cursor:item.action?"pointer":"default"}} onMouseEnter={e=>{if(item.action)e.currentTarget.style.opacity="0.7";}} onMouseLeave={e=>e.currentTarget.style.opacity="1"}><span style={{fontSize:16}}>{item.icon}</span><span style={{fontSize:12,color:item.action?C.accent:C.t2}}>{item.label}</span></div>)}</div></Tile>
       </div>
       <div style={{height:28}}/>
     </div>
   );
 }
 
+// ── ADD MEMBER PAGE ───────────────────────────────────────────────────────────
+function AddMemberPage({ role, onBack, onAdd }) {
+  const [form, setForm] = useState({ fullName:"", age:"", email:"", phone:"", spendLimit:"", role });
+  const set = (k,v) => setForm(f=>({...f,[k]:v}));
+  const colors = ["#7C6FFF","#34D399","#F472B6","#FBBF24","#60A5FA","#F87171"];
+  const [color, setColor] = useState(colors[0]);
+  const [photo, setPhoto] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
+  const handlePhoto = (e) => {
+    const file = e.target.files?.[0];
+    if(file) setPhoto(URL.createObjectURL(file));
+  };
+  const valid = form.fullName.trim().length>1 && parseInt(form.age)>0 && parseInt(form.spendLimit)>0;
+  const handleAdd = () => {
+    if(!valid) return;
+    const initials = form.fullName.trim().split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase();
+    const newMember = {
+      id: Date.now(), name: form.fullName.trim().split(" ")[0]+" "+form.fullName.trim().split(" ").slice(-1)[0][0]+".",
+      fullName: form.fullName.trim(), age: parseInt(form.age), email: form.email, phone: form.phone,
+      joined: new Date().toLocaleDateString("en-US",{month:"short",year:"numeric"}),
+      initials, avatarSeed: Math.floor(Math.random()*4), photo, color, colorSoft: color+"30",
+      role: form.role, spendMonth:0, spendLimit: parseInt(form.spendLimit), cards:1, goals:0,
+      status:"Within limit", statusColor:C.green, statusBg:C.greenSoft,
+      transactions:[], savingsGoal:{name:"New goal",desc:"",emoji:"🎯",color,saved:0,target:1000,monthly:100,autoSave:false,completion:"TBD",photo:""}
+    };
+    onAdd(newMember);
+  };
+  const inp = (label, key, placeholder, type="text") => (
+    <div style={{marginBottom:16}}>
+      <div style={{fontSize:12,fontWeight:500,color:C.t3,marginBottom:6}}>{label}</div>
+      <input value={form[key]} onChange={e=>set(key,e.target.value)} placeholder={placeholder} type={type}
+        style={{width:"100%",background:C.card,border:"1px solid "+C.border,borderRadius:12,padding:"11px 14px",fontSize:14,color:C.t1,outline:"none",boxSizing:"border-box"}}/>
+    </div>
+  );
+  return (
+    <div style={{background:C.bg,minHeight:"100%",color:C.t1,padding:"20px 20px 40px",overflowY:"auto"}}>
+      {/* Profile picture picker */}
+      <div style={{display:"flex",flexDirection:"column",alignItems:"center",marginBottom:24}}>
+        <input ref={fileRef} type="file" accept="image/*" style={{display:"none"}} onChange={handlePhoto}/>
+        <div onClick={()=>fileRef.current?.click()} style={{position:"relative",cursor:"pointer",marginBottom:10}}>
+          <div style={{width:80,height:80,borderRadius:"50%",background:photo?"transparent":color+"22",border:"2px solid "+color,overflow:"hidden",display:"flex",alignItems:"center",justifyContent:"center",fontSize:28}}>
+            {photo
+              ? <img src={photo} alt="preview" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+              : (form.role==="Parent"?"👤":"🧒")}
+          </div>
+          <div style={{position:"absolute",bottom:0,right:0,width:26,height:26,borderRadius:"50%",background:C.accent,border:"2px solid "+C.bg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14}}>📷</div>
+        </div>
+        <div style={{fontSize:13,color:C.accent,fontWeight:500}}>{photo?"Change photo":"Add photo"}</div>
+        <div style={{fontSize:16,fontWeight:600,color:C.t1,marginTop:6}}>{form.fullName||"New member"}</div>
+        <div style={{fontSize:13,color:C.t3}}>{form.role}</div>
+      </div>
+
+      <div style={{fontSize:12,fontWeight:600,color:C.t3,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:12}}>Personal details</div>
+      {inp("Full name","fullName","e.g. Sara Karlsson")}
+      {inp("Age","age","e.g. 35","number")}
+      {form.role==="Parent"&&inp("Email","email","e.g. sara@email.com","email")}
+      {form.role==="Parent"&&inp("Phone","phone","e.g. +46 70 123 45 67","tel")}
+
+      <div style={{fontSize:12,fontWeight:600,color:C.t3,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:12,marginTop:4}}>Spending</div>
+      {inp("Monthly limit (kr)","spendLimit","e.g. 5000","number")}
+
+      <div style={{fontSize:12,fontWeight:600,color:C.t3,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:12}}>Card colour</div>
+      <div style={{display:"flex",gap:10,marginBottom:24}}>
+        {colors.map(c=>(
+          <button key={c} type="button" onClick={()=>setColor(c)} style={{width:30,height:30,borderRadius:"50%",background:c,border:color===c?"3px solid "+C.t1:"3px solid transparent",cursor:"pointer",padding:0,flexShrink:0}}/>
+        ))}
+      </div>
+
+      <button type="button" onClick={handleAdd} disabled={!valid} style={{width:"100%",background:valid?C.accent:"rgba(124,111,255,0.3)",border:"none",borderRadius:14,padding:"13px 0",fontSize:14,fontWeight:600,color:"#fff",cursor:valid?"pointer":"default"}}>Add member</button>
+    </div>
+  );
+}
+
 // ── MAIN APP ──────────────────────────────────────────────────────────────────
 export default function App() {
+  const mainScrollRef = useRef<HTMLDivElement>(null);
   const [activeTab, setActiveTab] = useState("services");
   const [showFamily, setShowFamily] = useState(false);
   const [showChat, setShowChat] = useState(false);
@@ -2397,15 +4177,32 @@ export default function App() {
   const [members, setMembers] = useState(initMembers);
   const [buffer, setBuffer] = useState(initBuffer);
   const [childFund, setChildFund] = useState(initChildFund);
+  const [lucasFund, setLucasFund] = useState(initLucasFund);
+  const [summerHoliday, setSummerHoliday] = useState(initSummerHoliday);
   const [readNotifs, setReadNotifs] = useState(false);
   const [monthlyTrigger, setMonthlyTrigger] = useState(0);
+  const [dealsTrigger, setDealsTrigger] = useState(0);
+  const [bufferTrigger, setBufferTrigger] = useState(0);
+  const [limitsTrigger, setLimitsTrigger] = useState(0);
+  const [majaGoalTrigger, setMajaGoalTrigger] = useState(0);
   const [familySubPage, setFamilySubPage] = useState(null);
+  const [servicesSubPage, setServicesSubPage] = useState(null);
+  const [showMemberInvite, setShowMemberInvite] = useState(false);
+  const [inviteRole, setInviteRole] = useState("Parent");
+  const [showAddMember, setShowAddMember] = useState(false);
+  const [isDark, setIsDark] = useState(true);
+  const [isResurs, setIsResurs] = useState(false);
+  const applyColors = (dark:boolean, resurs:boolean) => { Object.assign(C, resurs?resursColors:dark?darkColors:lightColors); };
+  const toggleTheme = () => { const next=!isDark; applyColors(next, isResurs); setIsDark(next); };
+  const toggleResurs = () => { const next=!isResurs; applyColors(isDark, next); setIsResurs(next); };
   const unread = readNotifs ? 0 : NOTIFICATIONS.filter(n=>n.unread).length;
   const openChat = () => { setShowChat(true); setShowFamily(false); };
   const tabTitles = {services:"Services",payments:"Payments",merchants:"Merchants",myresurs:"My Resurs"};
-  const headerTitle = showFamily ? (familySubPage ? familySubPage.title : "Resurs Family") : tabTitles[activeTab];
-  const headerBack = showFamily ? (familySubPage ? familySubPage.back : ()=>setShowFamily(false)) : null;
+  const headerTitle = showFamily ? (familySubPage ? familySubPage.title : "Resurs Family") : (servicesSubPage ? servicesSubPage.title : tabTitles[activeTab]);
+  const headerBack = showFamily ? (familySubPage ? familySubPage.back : ()=>setShowFamily(false)) : (servicesSubPage ? servicesSubPage.back : null);
+  const showBack = showFamily || !!servicesSubPage;
   return (
+    <ThemeCtx.Provider value={{isDark,toggleTheme,isResurs,toggleResurs}}>
     <div style={{width:390,height:780,margin:"0 auto",fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",background:C.bg,borderRadius:36,overflow:"hidden",border:"1px solid "+C.border,display:"flex",flexDirection:"column",position:"relative"}}>
       {showInsights&&(
         <div onClick={()=>setShowInsights(false)} style={{position:"absolute",inset:0,background:"rgba(0,0,0,0.6)",zIndex:300,display:"flex",flexDirection:"column",justifyContent:"flex-end",borderRadius:36}}>
@@ -2414,7 +4211,7 @@ export default function App() {
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
               <div style={{display:"flex",alignItems:"center",gap:8}}>
                 <div style={{width:28,height:28,borderRadius:8,background:"linear-gradient(135deg,#7C6FFF,#34D399)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14}}>✦</div>
-                <div><div style={{fontSize:14,fontWeight:500,color:C.t1}}>AI Insights</div><div style={{fontSize:10,color:C.t3}}>Updated just now</div></div>
+                <div><div style={{fontSize:14,fontWeight:500,color:C.t1}}>AI Insights</div><div style={{fontSize:12,color:C.t3}}>Updated just now</div></div>
               </div>
           <button onClick={()=>setShowInsights(false)} style={{background:"rgba(255,255,255,0.07)",border:"1px solid "+C.border,borderRadius:"50%",width:30,height:30,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:C.t2,fontSize:14}}>x</button>
             </div>
@@ -2422,19 +4219,63 @@ export default function App() {
           </div>
         </div>
       )}
-      {showNotifs&&<NotificationsPanel onClose={()=>{setShowNotifs(false);setReadNotifs(true);}} onAction={a=>{if(a==="monthly"){setShowNotifs(false);setShowFamily(true);setMonthlyTrigger(t=>t+1);}}}/>}
+      {showNotifs&&<NotificationsPanel members={members} buffer={buffer} onClose={()=>{setShowNotifs(false);setReadNotifs(true);}} onAction={a=>{
+        setShowNotifs(false); setShowFamily(true);
+        if(a==="monthly") setMonthlyTrigger(t=>t+1);
+        else if(a==="deals") setDealsTrigger(t=>t+1);
+        else if(a==="buffer") setBufferTrigger(t=>t+1);
+        else if(a==="limits") setLimitsTrigger(t=>t+1);
+        else if(a==="maja-goal") setMajaGoalTrigger(t=>t+1);
+      }}/>}
       {showChat&&<AIChat members={members} buffer={buffer} childFund={childFund} onClose={()=>setShowChat(false)}/>}
-      <Header title={headerTitle} showBack={showFamily} onBack={headerBack} onNotifications={()=>setShowNotifs(true)} unreadCount={unread}/>
-      <div style={{flex:1,overflowY:"auto",display:"flex",flexDirection:"column",scrollbarWidth:"none"}}>
+      {showAddMember&&(
+        <div style={{position:"absolute",inset:0,zIndex:200,background:C.bg,display:"flex",flexDirection:"column",borderRadius:36,overflow:"hidden"}}>
+          <Header title={"Add "+inviteRole} showBack={true} onBack={()=>setShowAddMember(false)} onNotifications={()=>{}} unreadCount={0} onInsights={()=>{}}/>
+          <div style={{flex:1,overflowY:"auto",scrollbarWidth:"none"}}>
+            <AddMemberPage role={inviteRole} onBack={()=>setShowAddMember(false)} onAdd={m=>{setMembers(ms=>[...ms,m]);setShowAddMember(false);setShowFamily(true);}}/>
+          </div>
+        </div>
+      )}
+      {showMemberInvite&&(
+        <div onClick={()=>setShowMemberInvite(false)} style={{position:"absolute",inset:0,zIndex:200,background:"rgba(0,0,0,0.55)",display:"flex",flexDirection:"column",justifyContent:"flex-end",borderRadius:36}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:C.surface,borderRadius:"24px 24px 0 0",padding:"8px 24px 44px",borderTop:"1px solid "+C.border}}>
+            <div style={{width:40,height:4,borderRadius:999,background:C.border,margin:"10px auto 20px"}}/>
+            <div style={{fontSize:16,fontWeight:600,color:C.t1,marginBottom:4}}>Add family member</div>
+            <div style={{fontSize:13,color:C.t3,marginBottom:20}}>Choose the role for the new member</div>
+            {[
+              {role:"Parent",icon:"👤",desc:"Full access to accounts and spending management"},
+              {role:"Child",icon:"🧒",desc:"Limited access with spending limits and parental controls"},
+            ].map(opt=>(
+              <button type="button" key={opt.role} onClick={()=>setInviteRole(opt.role)} style={{width:"100%",display:"flex",alignItems:"center",gap:14,background:inviteRole===opt.role?C.accentSoft:C.card,border:"1px solid "+(inviteRole===opt.role?C.accent+"66":C.border),borderRadius:14,padding:"14px 16px",marginBottom:10,cursor:"pointer",textAlign:"left"}}>
+                <div style={{width:40,height:40,borderRadius:12,background:C.bg,border:"1px solid "+C.border,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>{opt.icon}</div>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:14,fontWeight:500,color:inviteRole===opt.role?C.accent:C.t1}}>{opt.role}</div>
+                  <div style={{fontSize:12,color:C.t3,marginTop:2}}>{opt.desc}</div>
+                </div>
+                <div style={{width:18,height:18,borderRadius:"50%",border:"2px solid "+(inviteRole===opt.role?C.accent:C.border),display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                  {inviteRole===opt.role&&<div style={{width:8,height:8,borderRadius:"50%",background:C.accent}}/>}
+                </div>
+              </button>
+            ))}
+            <div style={{display:"flex",gap:10,marginTop:6}}>
+              <button type="button" onClick={()=>setShowMemberInvite(false)} style={{flex:1,background:"none",border:"1px solid "+C.border,borderRadius:14,padding:"13px 0",fontSize:14,fontWeight:500,color:C.t2,cursor:"pointer"}}>Send invite link</button>
+              <button type="button" onClick={()=>{setShowMemberInvite(false);setShowAddMember(true);}} style={{flex:1,background:C.accent,border:"none",borderRadius:14,padding:"13px 0",fontSize:14,fontWeight:600,color:"#fff",cursor:"pointer"}}>Add member</button>
+            </div>
+          </div>
+        </div>
+      )}
+      <Header title={headerTitle} showBack={showBack} onBack={headerBack} onNotifications={()=>setShowNotifs(true)} unreadCount={unread} onInsights={()=>setShowInsights(true)}/>
+      <div ref={mainScrollRef} style={{flex:1,overflowY:"auto",display:"flex",flexDirection:"column",scrollbarWidth:"none"}}>
         {showFamily
-          ? <FamilyHub members={members} setMembers={setMembers} buffer={buffer} setBuffer={setBuffer} childFund={childFund} setChildFund={setChildFund} onBack={()=>setShowFamily(false)} onOpenChat={openChat} onOpenInsights={()=>setShowInsights(true)} onSubPage={setFamilySubPage} openMonthlyTrigger={monthlyTrigger}/>
-          : activeTab==="services"  ? <ServicesPage onFamilyClick={()=>setShowFamily(true)}/>
+          ? <FamilyHub members={members} setMembers={setMembers} buffer={buffer} setBuffer={setBuffer} childFund={childFund} setChildFund={setChildFund} lucasFund={lucasFund} setLucasFund={setLucasFund} summerHoliday={summerHoliday} setSummerHoliday={setSummerHoliday} onBack={()=>setShowFamily(false)} onOpenChat={openChat} onOpenInsights={()=>setShowInsights(true)} onSubPage={setFamilySubPage} openMonthlyTrigger={monthlyTrigger} openDealsTrigger={dealsTrigger} openBufferTrigger={bufferTrigger} openLimitsTrigger={limitsTrigger} openMajaGoalTrigger={majaGoalTrigger} onInviteMember={()=>setShowMemberInvite(true)} mainScrollRef={mainScrollRef}/>
+          : activeTab==="services"  ? <ServicesPage onFamilyClick={()=>setShowFamily(true)} members={members} buffer={buffer} setBuffer={setBuffer} childFund={childFund} setChildFund={setChildFund} lucasFund={lucasFund} setLucasFund={setLucasFund} summerHoliday={summerHoliday} onSubPage={setServicesSubPage} mainScrollRef={mainScrollRef}/>
           : activeTab==="payments"  ? <PaymentsPage/>
-          : activeTab==="merchants" ? <MerchantsPage/>
-          : <MyResursPage/>
+          : activeTab==="merchants" ? <MerchantsPage mainScrollRef={mainScrollRef}/>
+          : <MyResursPage mainScrollRef={mainScrollRef}/>
         }
       </div>
       <Footer activeTab={activeTab} onTab={tab=>{setActiveTab(tab);setShowFamily(false);setShowChat(false);}}/>
     </div>
+    </ThemeCtx.Provider>
   );
 }
