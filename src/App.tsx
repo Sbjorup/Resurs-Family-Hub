@@ -2175,7 +2175,7 @@ function SpendingPage({ members, buffer, childFund, lucasFund, loans=[], onManag
 
   // ── Available this month ──
   if (spendView === "allocate") {
-    const avail=Math.max(0,income-committedTotal-allVars.reduce((s,c)=>s+(limits[c.name]||c.planned),0)-savingsMonthly);
+    const avail=available;
     const perDay=daysLeft>0?Math.round(avail/daysLeft):0;
     const suggestions=[
       {icon:"🛟",label:"Buffer account",sub:"Joint safety net · "+fmt(buffer.balance)+" kr saved",color:"#7C6FFF"},
@@ -2215,25 +2215,25 @@ function SpendingPage({ members, buffer, childFund, lucasFund, loans=[], onManag
   const varPct     = Math.min(100, Math.round(varActual/varPlanned*100));
   const overCount  = allVars.filter(c=>c.actual>(limits[c.name]||c.planned)).length;
   const varBarCol  = overCount>0 ? C.red : varPct>=85 ? C.amber : C.accent;
-  const varLeftCol = varLeft<0 ? C.red : varLeft<varPlanned*0.15 ? C.amber : C.green;
   const upcomingFuture = SPEND_UPCOMING.filter(i=>i.day>=daysElapsed).sort((a,b)=>a.day-b.day);
-  const available  = Math.max(0, income - committedTotal - varPlanned - savingsMonthly);
+  const moneyLeft  = income - committedTotal - varActual - savingsMonthly;
+  const available  = moneyLeft;
+  const leftCol    = moneyLeft<0 ? C.red : moneyLeft < income*0.1 ? C.amber : C.green;
 
   // ── Overview ──
   return (
     <div onClickCapture={saveScroll} style={{background:C.bg,minHeight:"100%",color:C.t1}}>
-      {/* Month + add */}
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"16px 20px 12px"}}>
+      {/* Month */}
+      <div style={{padding:"16px 20px 12px"}}>
         <div style={{fontSize:14,fontWeight:500,color:C.t1}}>{monthName} <span style={{color:C.t3,fontWeight:400}}>· {daysLeft} days left</span></div>
-        <button onClick={()=>onSpendView("addExp")} style={{width:32,height:32,borderRadius:"50%",background:C.accent,border:"none",color:"#fff",fontSize:18,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
       </div>
 
       {/* Hero: left this month */}
       <div style={{padding:"0 20px 14px"}}>
-        <div style={{background:C.card,border:"1px solid "+(varLeft<0?C.red+"55":C.border),borderRadius:18,padding:"18px 20px"}}>
+        <div style={{background:C.card,border:"1px solid "+(moneyLeft<0?C.red+"55":C.border),borderRadius:18,padding:"18px 20px"}}>
           <div style={{fontSize:11,color:C.t3,textTransform:"uppercase",letterSpacing:0.5,marginBottom:6}}>Left this month</div>
-          <div style={{fontSize:34,fontWeight:700,color:varLeftCol,letterSpacing:-1,lineHeight:1,marginBottom:4}}>{varLeft<0?"−":""}{fmt(Math.abs(varLeft))}<span style={{fontSize:15,fontWeight:400,color:C.t2,marginLeft:4}}>kr</span></div>
-          <div style={{fontSize:12,color:C.t3,marginBottom:14}}>{"of "+fmt(varPlanned)+" kr planned · "+daysLeft+" days left"}</div>
+          <div style={{fontSize:34,fontWeight:700,color:leftCol,letterSpacing:-1,lineHeight:1,marginBottom:4}}>{moneyLeft<0?"−":""}{fmt(Math.abs(moneyLeft))}<span style={{fontSize:15,fontWeight:400,color:C.t2,marginLeft:4}}>kr</span></div>
+          <div style={{fontSize:12,color:C.t3,marginBottom:14}}>{"After fixed costs & savings · "+daysLeft+" days left"}</div>
           <div style={{height:5,borderRadius:3,background:"rgba(255,255,255,0.07)"}}>
             <div style={{height:"100%",borderRadius:3,background:varBarCol,width:varPct+"%"}}/>
           </div>
@@ -2248,20 +2248,23 @@ function SpendingPage({ members, buffer, childFund, lucasFund, loans=[], onManag
             <div><div style={{fontSize:13,fontWeight:600,color:C.t1,marginBottom:2}}>Variable spending</div><div style={{fontSize:12,color:C.t3}}>{allVars.length+" categories"}</div></div>
             <div style={{textAlign:"right"}}><div style={{fontSize:15,fontWeight:600,color:overCount>0?C.red:C.t1}}>{fmt(varActual)} kr</div><div style={{fontSize:11,color:C.t3}}>{"of "+fmt(varPlanned)+" kr"}</div></div>
           </div>
-          <div style={{display:"flex",flexDirection:"column",gap:6}}>
+          <div style={{display:"flex",flexDirection:"column",gap:10}}>
             {allVars.map(cat=>{
               const pl=limits[cat.name]||cat.planned;
               const pct=Math.min(100,Math.round(cat.actual/pl*100));
-              const s=getStatus(cat.actual,pl); const bc=statusColor(s,cat.color);
               const left=pl-cat.actual;
+              const isOver=left<0;
+              const isWarn=!isOver&&pct>=75;
+              const barColor=isOver?C.red:isWarn?C.amber:"rgba(255,255,255,0.5)";
+              const textColor=isOver?C.red:isWarn?C.amber:C.t2;
               return (
                 <div key={cat.name}>
-                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
-                    <div style={{fontSize:12,color:C.t2,display:"flex",alignItems:"center",gap:5}}><span>{cat.icon}</span>{cat.name}</div>
-                    <div style={{fontSize:12,color:bc,fontWeight:500}}>{left<0?"−":""}{fmt(Math.abs(left))} kr {left<0?"over":"left"}</div>
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}>
+                    <div style={{fontSize:13,color:C.t2,display:"flex",alignItems:"center",gap:6}}><span>{cat.icon}</span>{cat.name}</div>
+                    <div style={{fontSize:13,color:textColor,fontWeight:isOver||isWarn?600:400}}>{isOver?"−":""}{fmt(Math.abs(left))} kr {isOver?"over":"left"}</div>
                   </div>
-                  <div style={{height:3,borderRadius:2,background:"rgba(255,255,255,0.07)"}}>
-                    <div style={{height:"100%",borderRadius:2,background:bc,width:pct+"%"}}/>
+                  <div style={{height:6,borderRadius:3,background:"rgba(255,255,255,0.07)"}}>
+                    <div style={{height:"100%",borderRadius:3,background:barColor,width:pct+"%"}}/>
                   </div>
                 </div>
               );
